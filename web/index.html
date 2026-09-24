@@ -75,8 +75,6 @@
                 clearTimeout(debounceTimer);
             }
 
-            output.innerHTML = '<span class="loading">Processing...</span>';
-
             debounceTimer = setTimeout(() => {
                 fetch('/process', {
                     method: 'POST',
