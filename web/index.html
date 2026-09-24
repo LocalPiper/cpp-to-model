@@ -1,0 +1,99 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <title>Live Text Processor</title>
+    <style>
+        body {
+            font-family: system-ui, sans-serif;
+            max-width: 1200px;
+            margin: 40px auto;
+            padding: 20px;
+        }
+        .container {
+            display: flex;
+            gap: 20px;
+        }
+        .panel {
+            flex: 1;
+        }
+        textarea {
+            width: 100%;
+            height: 400px;
+            font-size: 16px;
+            padding: 10px;
+            box-sizing: border-box;
+            resize: vertical;
+        }
+        #output {
+            height: 400px;
+            padding: 10px;
+            background: #f5f5f5;
+            border-radius: 5px;
+            font-family: monospace;
+            white-space: pre-wrap;
+            overflow-y: auto;
+            box-sizing: border-box;
+        }
+        .loading {
+            color: #666;
+            font-style: italic;
+        }
+        h1 {
+            text-align: center;
+            margin-bottom: 30px;
+        }
+        .panel-title {
+            font-weight: bold;
+            margin-bottom: 10px;
+            color: #333;
+        }
+    </style>
+</head>
+<body>
+    <h1>Live Text Processor</h1>
+    <div class="container">
+        <div class="panel">
+            <div class="panel-title">Input</div>
+            <textarea id="textInput" placeholder="Start typing..."></textarea>
+        </div>
+        <div class="panel">
+            <div class="panel-title">Output</div>
+            <div id="output"><span class="loading">Output will appear here...</span></div>
+        </div>
+    </div>
+
+    <script>
+        const textInput = document.getElementById('textInput');
+        const output = document.getElementById('output');
+        let debounceTimer = null;
+
+        textInput.addEventListener('input', () => {
+            const text = textInput.value;
+
+            if (debounceTimer) {
+                clearTimeout(debounceTimer);
+            }
+
+            output.innerHTML = '<span class="loading">Processing...</span>';
+
+            debounceTimer = setTimeout(() => {
+                fetch('/process', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({ text: text })
+                })
+                .then(response => response.json())
+                .then(data => {
+                    output.textContent = JSON.stringify(data, null, 2);
+                })
+                .catch(error => {
+                    output.textContent = 'Error: ' + error;
+                });
+            }, 500);
+        });
+    </script>
+</body>
+</html>
