@@ -1,97 +1,302 @@
 <!DOCTYPE html>
-<html>
+<html lang="en">
 <head>
     <meta charset="UTF-8">
-    <title>Live Text Processor</title>
+    <title>C++ AST Explorer</title>
     <style>
         body {
             font-family: system-ui, sans-serif;
-            max-width: 1200px;
-            margin: 40px auto;
-            padding: 20px;
+            margin: 0;
+            background: #fafafa;
+            color: #222;
         }
-        .container {
+        header {
+            background: #1a1a2e;
+            color: #fff;
+            padding: 14px 24px;
             display: flex;
-            gap: 20px;
+            align-items: baseline;
+            gap: 16px;
         }
-        .panel {
-            flex: 1;
+        header h1 {
+            font-size: 18px;
+            margin: 0;
         }
-        textarea {
-            width: 100%;
-            height: 400px;
-            font-size: 16px;
-            padding: 10px;
-            box-sizing: border-box;
-            resize: vertical;
+        header .sub {
+            color: #9aa0c0;
+            font-size: 13px;
         }
-        #output {
-            height: 400px;
-            padding: 10px;
-            background: #f5f5f5;
-            border-radius: 5px;
-            font-family: monospace;
-            white-space: pre-wrap;
-            overflow-y: auto;
-            box-sizing: border-box;
+        .toolbar {
+            padding: 10px 24px;
+            display: flex;
+            gap: 10px;
+            align-items: center;
+            background: #fff;
+            border-bottom: 1px solid #e0e0e0;
+            position: sticky;
+            top: 0;
+            z-index: 5;
         }
-        .loading {
+        button {
+            font-size: 13px;
+            padding: 7px 14px;
+            border-radius: 6px;
+            border: 1px solid #ccc;
+            background: #fff;
+            cursor: pointer;
+        }
+        button:hover {
+            background: #f0f0f0;
+        }
+        button.primary {
+            background: #1a1a2e;
+            color: #fff;
+            border-color: #1a1a2e;
+        }
+        button.primary:hover {
+            background: #2b2b4a;
+        }
+        #status {
+            font-size: 13px;
+            margin-left: auto;
+        }
+        #status.ok {
+            color: #1b5e20;
+        }
+        #status.err {
+            color: #b71c1c;
+        }
+        #status.busy {
             color: #666;
             font-style: italic;
         }
-        h1 {
-            text-align: center;
-            margin-bottom: 30px;
+        .main {
+            display: flex;
+            gap: 16px;
+            padding: 16px 24px;
+            align-items: stretch;
+        }
+        .panel {
+            flex: 1;
+            min-width: 0;
+            display: flex;
+            flex-direction: column;
         }
         .panel-title {
-            font-weight: bold;
-            margin-bottom: 10px;
+            font-weight: 600;
+            margin-bottom: 8px;
             color: #333;
+            font-size: 14px;
+        }
+        textarea {
+            width: 100%;
+            flex: 1;
+            min-height: 560px;
+            font-family: ui-monospace, Menlo, Consolas, monospace;
+            font-size: 13px;
+            padding: 10px;
+            box-sizing: border-box;
+            resize: vertical;
+            border: 1px solid #ccc;
+            border-radius: 6px;
+            background: #fff;
+            tab-size: 4;
+        }
+        #svgBox {
+            flex: 1;
+            min-height: 560px;
+            max-height: 760px;
+            overflow: auto;
+            background: #fff;
+            border: 1px solid #ccc;
+            border-radius: 6px;
+            padding: 8px;
+            box-sizing: border-box;
+        }
+        #svgBox svg {
+            display: block;
+        }
+        .placeholder {
+            color: #999;
+            font-style: italic;
+            padding: 20px;
+        }
+        #diagnostics {
+            margin-top: 10px;
+            background: #fdecea;
+            border: 1px solid #ef9a9a;
+            color: #b71c1c;
+            border-radius: 6px;
+            padding: 10px;
+            font-family: ui-monospace, Menlo, Consolas, monospace;
+            font-size: 12px;
+            white-space: pre-wrap;
+            max-height: 160px;
+            overflow: auto;
+        }
+        details {
+            margin-top: 10px;
+        }
+        summary {
+            cursor: pointer;
+            font-size: 13px;
+            color: #1565c0;
+            user-select: none;
+        }
+        #jsonBox {
+            background: #f5f5f5;
+            border: 1px solid #ddd;
+            border-radius: 6px;
+            padding: 10px;
+            font-family: ui-monospace, Menlo, Consolas, monospace;
+            font-size: 11px;
+            white-space: pre-wrap;
+            max-height: 300px;
+            overflow: auto;
+        }
+        @media (max-width: 900px) {
+            .main {
+                flex-direction: column;
+            }
         }
     </style>
 </head>
 <body>
-    <h1>Live Text Processor</h1>
-    <div class="container">
+    <header>
+        <h1>C++ AST Explorer</h1>
+        <span class="sub">LibTooling AST &rarr; JSON + SVG picture &rarr; browser</span>
+    </header>
+    <div class="toolbar">
+        <button id="parseBtn" class="primary">Parse</button>
+        <button id="sampleBtn">Load sample</button>
+        <span id="status">Ready.</span>
+    </div>
+    <div class="main">
         <div class="panel">
-            <div class="panel-title">Input</div>
-            <textarea id="textInput" placeholder="Start typing..."></textarea>
+            <div class="panel-title">C++ source</div>
+            <textarea id="codeInput" spellcheck="false" placeholder="Paste C++ code here..."></textarea>
         </div>
         <div class="panel">
-            <div class="panel-title">Output</div>
-            <div id="output"><span class="loading">Output will appear here...</span></div>
+            <div class="panel-title">AST picture (hover nodes for details)</div>
+            <div id="svgBox"><div class="placeholder">Paste C++ code and press Parse...</div></div>
+            <div id="diagnostics" hidden></div>
+            <details>
+                <summary>Raw AST (JSON)</summary>
+                <pre id="jsonBox"></pre>
+            </details>
         </div>
     </div>
 
     <script>
-        const textInput = document.getElementById('textInput');
-        const output = document.getElementById('output');
+        const SAMPLE = `#include <iostream>
+#include <vector>
+
+struct Point {
+    int x;
+    int y;
+};
+
+int square(int n) {
+    return n * n;
+}
+
+int main() {
+    std::vector<Point> points;
+    for (int i = 0; i < 3; ++i) {
+        points.push_back({i, i * i});
+    }
+    int total = 0;
+    for (const Point& p : points) {
+        total += square(p.x) + p.y;
+    }
+    std::cout << "total: " << total << std::endl;
+    return 0;
+}`;
+
+        const codeInput = document.getElementById('codeInput');
+        const parseBtn = document.getElementById('parseBtn');
+        const sampleBtn = document.getElementById('sampleBtn');
+        const statusEl = document.getElementById('status');
+        const svgBox = document.getElementById('svgBox');
+        const diagEl = document.getElementById('diagnostics');
+        const jsonBox = document.getElementById('jsonBox');
         let debounceTimer = null;
 
-        textInput.addEventListener('input', () => {
-            const text = textInput.value;
+        // Safe error display without HTML injection.
+        function setPlaceholder(message) {
+            svgBox.textContent = '';
+            const div = document.createElement('div');
+            div.className = 'placeholder';
+            div.textContent = message;
+            svgBox.appendChild(div);
+        }
 
-            if (debounceTimer) {
-                clearTimeout(debounceTimer);
+        async function parse(text) {
+            statusEl.className = 'busy';
+            statusEl.textContent = 'Parsing in C++ (clang)...';
+            try {
+                const res = await fetch('/process', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ text: text })
+                });
+                const data = await res.json();
+                render(data);
+            } catch (err) {
+                statusEl.className = 'err';
+                statusEl.textContent = 'Request failed: ' + err;
+                setPlaceholder(String(err));
+            }
+        }
+
+        function render(data) {
+            if (data.error) {
+                statusEl.className = 'err';
+                statusEl.textContent = 'Error: ' + data.error;
+                setPlaceholder(data.error);
+                diagEl.hidden = true;
+                jsonBox.textContent = '';
+                return;
             }
 
-            debounceTimer = setTimeout(() => {
-                fetch('/process', {
-                    method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json',
-                    },
-                    body: JSON.stringify({ text: text })
-                })
-                .then(response => response.json())
-                .then(data => {
-                    output.textContent = JSON.stringify(data, null, 2);
-                })
-                .catch(error => {
-                    output.textContent = 'Error: ' + error;
-                });
-            }, 500);
+            svgBox.innerHTML = data.svg || '';
+            if (!data.svg) setPlaceholder('No AST picture produced.');
+
+            let st = '\u2713 ' + data.node_count + ' node(s), ' +
+                     data.errors + ' error(s), ' + data.warnings + ' warning(s)';
+            if (data.truncated) st += ' \u00b7 truncated';
+            statusEl.className = data.errors ? 'err' : 'ok';
+            statusEl.textContent = st;
+
+            if (data.diagnostics && data.diagnostics.length) {
+                diagEl.hidden = false;
+                diagEl.textContent = data.diagnostics.join('\n');
+            } else {
+                diagEl.hidden = true;
+            }
+
+            jsonBox.textContent = JSON.stringify(data.ast, null, 2);
+        }
+
+        codeInput.addEventListener('input', () => {
+            if (debounceTimer) clearTimeout(debounceTimer);
+            debounceTimer = setTimeout(() => parse(codeInput.value), 700);
         });
+
+        parseBtn.addEventListener('click', () => {
+            if (debounceTimer) clearTimeout(debounceTimer);
+            parse(codeInput.value);
+        });
+
+        sampleBtn.addEventListener('click', () => {
+            codeInput.value = SAMPLE;
+            if (debounceTimer) clearTimeout(debounceTimer);
+            parse(SAMPLE);
+        });
+
+        // Load the sample on first visit.
+        codeInput.value = SAMPLE;
+        parse(SAMPLE);
     </script>
 </body>
 </html>

@@ -1,0 +1,7 @@
+# C++ build artifacts
+*.o
+*.d
+web/processor
+
+# Python
+__pycache__/

@@ -7,6 +7,8 @@ from urllib.parse import urlparse
 
 
 PORT = 8000
+MAX_INPUT_BYTES = 200_000
+PROCESS_TIMEOUT = 60  # seconds (first call also builds the C++ processor)
 
 SCRIPT_DIR = Path(__file__).resolve().parent
 PROCESSOR_PATH = SCRIPT_DIR / "processor"
@@ -27,6 +29,7 @@ def build_processor():
 
 
 def process_text(text):
+    """Send C++ source to the C++ processor and return its JSON response."""
     if not PROCESSOR_PATH.exists():
         build_processor()
 
@@ -35,9 +38,14 @@ def process_text(text):
         input=text,
         capture_output=True,
         text=True,
-        timeout=5
+        timeout=PROCESS_TIMEOUT
     )
-    return json.loads(result.stdout)
+    try:
+        return json.loads(result.stdout)
+    except json.JSONDecodeError:
+        raise RuntimeError(
+            f"C++ processor returned invalid JSON. stderr: {result.stderr[:500]}"
+        )
 
 
 class RequestHandler(http.server.SimpleHTTPRequestHandler):
@@ -65,8 +73,21 @@ class RequestHandler(http.server.SimpleHTTPRequestHandler):
             try:
                 data = json.loads(post_data)
                 text = data.get('text', '')
-                result = process_text(text)
+                if not isinstance(text, str):
+                    raise ValueError("'text' must be a string")
 
+                if len(text) > MAX_INPUT_BYTES:
+                    payload = {
+                        "ok": False,
+                        "error": f"Input too large (limit {MAX_INPUT_BYTES} bytes)."
+                    }
+                    self.send_response(413)
+                    self.send_header("Content-type", "application/json")
+                    self.end_headers()
+                    self.wfile.write(json.dumps(payload).encode())
+                    return
+
+                result = process_text(text)
                 self.send_response(200)
                 self.send_header("Content-type", "application/json")
                 self.end_headers()
@@ -76,7 +97,7 @@ class RequestHandler(http.server.SimpleHTTPRequestHandler):
                 self.send_response(500)
                 self.send_header("Content-type", "application/json")
                 self.end_headers()
-                self.wfile.write(json.dumps({"error": str(e)}).encode())
+                self.wfile.write(json.dumps({"ok": False, "error": str(e)}).encode())
         else:
             self.send_response(404)
             self.end_headers()
