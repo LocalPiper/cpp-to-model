@@ -119,20 +119,56 @@
             color: #888;
             font-size: 12px;
         }
-        textarea {
-            width: 100%;
+        /* Overlay code editor: transparent textarea on top of a highlighted <pre>. */
+        .editor {
             flex: 1;
             min-height: 560px;
+            position: relative;
+            resize: vertical;
+            overflow: hidden;
+        }
+        #codeHighlight,
+        #codeInput {
             font-family: ui-monospace, Menlo, Consolas, monospace;
             font-size: 13px;
+            line-height: 1.5;
             padding: 10px;
             box-sizing: border-box;
-            resize: vertical;
             border: 1px solid #ccc;
             border-radius: 6px;
-            background: #fff;
             tab-size: 4;
         }
+        #codeHighlight {
+            position: absolute;
+            inset: 0;
+            margin: 0;
+            overflow: hidden;
+            pointer-events: none;
+            white-space: pre;
+            background: #fff;
+            color: #222;
+        }
+        #codeInput {
+            position: absolute;
+            inset: 0;
+            width: 100%;
+            height: 100%;
+            resize: none;
+            overflow: auto;
+            background: transparent;
+            color: transparent;
+            -webkit-text-fill-color: transparent;
+            caret-color: #222;
+        }
+        #codeInput::placeholder {
+            color: #9aa0b0;
+            -webkit-text-fill-color: #9aa0b0;
+        }
+        #codeHighlight .cmt { color: #5c6370; font-style: italic; }
+        #codeHighlight .str { color: #a4412f; }
+        #codeHighlight .pre { color: #8250df; }
+        #codeHighlight .kw  { color: #0550ae; font-weight: 600; }
+        #codeHighlight .num { color: #953800; }
         #svgBox {
             flex: 1;
             min-height: 560px;
@@ -205,7 +241,10 @@
     <div class="main">
         <div class="panel">
             <div class="panel-title">C++ source</div>
-            <textarea id="codeInput" spellcheck="false" placeholder="Paste C++ code here..."></textarea>
+            <div id="editor" class="editor">
+                <pre id="codeHighlight" aria-hidden="true"></pre>
+                <textarea id="codeInput" spellcheck="false" wrap="off" placeholder="Paste C++ code here..."></textarea>
+            </div>
         </div>
         <div class="panel">
             <div class="panel-title">
@@ -264,6 +303,48 @@ int main() {
         let currentData = null;
         let currentTab = 'ast';
         let debounceTimer = null;
+
+        // ---- Very simple C++ syntax highlighting (highlighted layer under the editor). ----
+        const highEl = document.getElementById('codeHighlight');
+        const HIGHLIGHT_RE = new RegExp([
+            '(\\/\\/[^\\n]*|\\/\\*[\\s\\S]*?\\*\\/)',                                 // 1: comments
+            '("(?:\\\\.|[^"\\\\\\n])*"|\'(?:\\\\.|[^\'\\\\\\n])*\'|`[^`]*`)',         // 2: strings
+            '(^[ \\t]*#[^\\n]*)',                                                     // 3: preprocessor
+            '\\b(alignas|alignof|and|and_eq|asm|auto|bitand|bitor|bool|break|case|catch|char|char16_t|char32_t|char8_t|class|co_await|co_return|co_yield|compl|concept|const|consteval|constexpr|constinit|const_cast|continue|decltype|default|delete|do|double|dynamic_cast|else|enum|explicit|export|extern|false|float|for|friend|goto|if|import|inline|int|long|module|mutable|namespace|new|noexcept|not|not_eq|nullptr|operator|or|or_eq|private|protected|public|register|reinterpret_cast|requires|return|short|signed|sizeof|static|static_assert|static_cast|struct|switch|template|this|thread_local|throw|true|try|typedef|typeid|typename|union|unsigned|using|virtual|void|volatile|wchar_t|while|xor|xor_eq)\\b', // 4: keywords
+            '\\b(?:0[xX][0-9a-fA-F_]+|\\d[\\d_]*(?:\\.\\d+)?(?:[eE][+-]?\\d+)?(?:[uUlLfF]{0,3}))\\b' // 5: numbers
+        ].join('|'), 'gm');
+
+        function escapeHtml(s) {
+            return s.replace(/&/g, '&').replace(/</g, '<').replace(/>/g, '>');
+        }
+
+        function highlightCpp(text) {
+            let out = '', last = 0, mt;
+            HIGHLIGHT_RE.lastIndex = 0;
+            while ((mt = HIGHLIGHT_RE.exec(text)) !== null) {
+                out += escapeHtml(text.slice(last, mt.index));
+                let cls = '';
+                if (mt[1]) cls = 'cmt';
+                else if (mt[2]) cls = 'str';
+                else if (mt[3]) cls = 'pre';
+                else if (mt[4]) cls = 'kw';
+                else if (mt[5]) cls = 'num';
+                out += '<span class="' + cls + '">' + escapeHtml(mt[0]) + '</span>';
+                last = mt.index + mt[0].length;
+            }
+            return out + escapeHtml(text.slice(last));
+        }
+
+        function updateHighlight() {
+            const v = codeInput.value;
+            // Trailing space keeps the caret row aligned with the layer underneath.
+            highEl.innerHTML = highlightCpp(v) + (v.endsWith('\n') ? ' ' : '');
+        }
+
+        codeInput.addEventListener('scroll', () => {
+            highEl.scrollTop = codeInput.scrollTop;
+            highEl.scrollLeft = codeInput.scrollLeft;
+        });
 
         function setTab(tab) {
             currentTab = tab;
@@ -348,6 +429,7 @@ int main() {
         }
 
         codeInput.addEventListener('input', () => {
+            updateHighlight();
             if (debounceTimer) clearTimeout(debounceTimer);
             debounceTimer = setTimeout(() => parse(codeInput.value), 700);
         });
@@ -357,14 +439,100 @@ int main() {
             parse(codeInput.value);
         });
 
+        // ---- Code-editing helpers: smart Enter indentation, Tab inserts spaces,
+        //      auto-dedent when typing a closing brace on its own line. ----
+        const INDENT_UNIT = '    '; // 4 spaces (matches textarea tab-size)
+
+        function indentUnit() {
+            // Prefer the indentation already used in the document: a tab if any
+            // line is tab-indented, otherwise 4 spaces.
+            const m = codeInput.value.match(/^[ \t]+/m);
+            return (m && m[0][0] === '\t') ? '\t' : INDENT_UNIT;
+        }
+
+        function dedent(s, unit) {
+            if (unit === '\t') return s.startsWith('\t') ? s.slice(1) : s;
+            return s.startsWith(unit) ? s.slice(unit.length) : s;
+        }
+
+        function replaceSelectionWith(text) {
+            // Insert/replace selection at the caret, preserving the undo stack
+            // where the browser supports it.
+            const ok = document.execCommand('insertText', false, text);
+            if (ok) return;
+            const ta = codeInput;
+            const start = ta.selectionStart, end = ta.selectionEnd;
+            const pos = start + text.length;
+            ta.value = ta.value.slice(0, start) + text + ta.value.slice(end);
+            ta.selectionStart = ta.selectionEnd = pos;
+            ta.dispatchEvent(new Event('input', { bubbles: true }));
+        }
+
+        function currentLine(caret) {
+            const value = codeInput.value;
+            const lineStart = value.lastIndexOf('\n', caret - 1) + 1;
+            return { text: value.slice(lineStart, caret), start: lineStart };
+        }
+
+        function smartEnter() {
+            const caret = codeInput.selectionStart;
+            const { text } = currentLine(caret);
+            const leading = (text.match(/^[ \t]*/) || [''])[0];
+            const trimmed = text.trim();
+            const unit = indentUnit();
+
+            let next = leading;
+            if (trimmed.endsWith('{')) {
+                next = leading + unit;               // opened a block -> indent
+            } else if (trimmed.startsWith('}')) {
+                next = dedent(leading, unit);        // closed a block -> outdent
+            }
+            replaceSelectionWith('\n' + next);
+        }
+
+        function insertClosingBrace() {
+            const ta = codeInput;
+            const caret = ta.selectionStart;
+            const value = ta.value;
+            // Re-indent only when there is no selection and the brace is the
+            // first real character on the line; otherwise behave like normal typing.
+            const lineStart = value.lastIndexOf('\n', caret - 1) + 1;
+            const line = value.slice(lineStart, caret);
+            if (ta.selectionStart !== ta.selectionEnd || line.trim() !== '') {
+                replaceSelectionWith('}');
+                return;
+            }
+            const ded = dedent(line, indentUnit());
+            const newValue = value.slice(0, lineStart) + ded + '}' + value.slice(caret);
+            const pos = lineStart + ded.length + 1;
+            ta.value = newValue;
+            ta.selectionStart = ta.selectionEnd = pos;
+            ta.dispatchEvent(new Event('input', { bubbles: true }));
+        }
+
+        codeInput.addEventListener('keydown', (e) => {
+            if (e.key === 'Tab' && !e.ctrlKey && !e.metaKey) {
+                e.preventDefault();
+                replaceSelectionWith(indentUnit());
+            } else if (e.key === 'Enter' && !e.shiftKey && !e.ctrlKey && !e.metaKey) {
+                e.preventDefault();
+                smartEnter();
+            } else if (e.key === '}') {
+                e.preventDefault();
+                insertClosingBrace();
+            }
+        });
+
         sampleBtn.addEventListener('click', () => {
             codeInput.value = SAMPLE;
+            updateHighlight();
             if (debounceTimer) clearTimeout(debounceTimer);
             parse(SAMPLE);
         });
 
         // Load the sample on first visit.
         codeInput.value = SAMPLE;
+        updateHighlight();
         parse(SAMPLE);
     </script>
 </body>
