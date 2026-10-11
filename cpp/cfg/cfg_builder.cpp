@@ -67,8 +67,8 @@ std::string CfgBuilder::walkExpr(int e, bool temp_needed = false,
         if (expr_node.children.empty()) return "";
         return walkExpr(expr_node.children.front(), temp_needed, value_needed);
     }
-    if (expr_node.kind == "UnaryOperator")
-        return walkUnary(e, temp_needed, value_needed);
+    if (expr_node.kind == "UnaryOperator" || expr_node.kind == "UnaryExprOrTypeTraitExpr")
+        return walkUnary(e, temp_needed, value_needed); // oooh allowing type trait expressions will go so wrong i can feel it
     if (expr_node.kind == "BinaryOperator" || expr_node.kind == "CompoundAssignOperator")
         return walkBinary(e, temp_needed, value_needed);
 
@@ -100,9 +100,10 @@ std::string CfgBuilder::walkUnary(int e, bool temp_needed, bool value_needed) {
     // arithmetic/logical unary
     const std::string operand = walkExpr(expr_node.children.front(), true, true);
     if (operand.empty()) return "";
-    if (!temp_needed) return op + operand;
+    const std::string expr = (op == "sizeof" ? op + " " : op) + operand;
+    if (!temp_needed) return expr;
     const std::string t = makeTemp();
-    addToBlock(t + " = " + op + operand);
+    addToBlock(t + " = " + expr);
     return t;
 }
 
