@@ -69,7 +69,7 @@ std::string CfgBuilder::walkExpr(int e, bool temp_needed = false,
     }
     if (expr_node.kind == "UnaryOperator")
         return walkUnary(e, temp_needed, value_needed);
-    if (expr_node.kind == "BinaryOperator")
+    if (expr_node.kind == "BinaryOperator" || expr_node.kind == "CompoundAssignOperator")
         return walkBinary(e, temp_needed, value_needed);
 
     // will support later
