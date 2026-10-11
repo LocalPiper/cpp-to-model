@@ -72,7 +72,11 @@ SRC = cpp/main.cpp \
       cpp/json_out.cpp \
       cpp/ast/ast_builder.cpp \
       cpp/ast/clang_session.cpp \
-      cpp/draw/ast_drawer.cpp
+      cpp/cfg/cfg_utils.cpp \
+      cpp/cfg/cfg_builder.cpp \
+      cpp/cfg/cfg_out.cpp \
+      cpp/draw/ast_drawer.cpp \
+      cpp/draw/cfg_drawer.cpp
 OBJ = $(SRC:.cpp=.o)
 
 # Generate per-object dependency files (-MMD) so header changes rebuild.

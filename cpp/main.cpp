@@ -1,6 +1,9 @@
 #include "ast/ast_builder.h"
 #include "ast/clang_session.h"
+#include "cfg/cfg_builder.h"
+#include "cfg/cfg_out.h"
 #include "draw/ast_drawer.h"
+#include "draw/cfg_drawer.h"
 #include "facade.h"
 #include "json_out.h"
 #include "text_utils.h"
@@ -50,9 +53,15 @@ int main() {
     parse_and_build(source, builder, summary);
 
     const TreeModel& tree = builder.tree();
+    CfgBuilder cfg_builder;
+    cfg_builder.build(tree);
+    const Cfg& cfg = cfg_builder.cfg();
 
     AstDrawer drawer;
     std::string svg = drawer.render(tree);
+
+    CfgDrawer cfg_drawer;
+    std::string cfg_svg = cfg_drawer.render(cfg);
 
     std::ostringstream out;
     out << "{\n";
@@ -70,7 +79,11 @@ int main() {
     out << "  \"ast\": ";
     emit_tree_json(out, tree);
     out << ",\n";
-    out << "  \"svg\": \"" << escape_json(svg) << "\"\n";
+    out << "  \"svg\": \"" << escape_json(svg) << "\",\n";
+    out << "  \"cfg\": ";
+    emit_cfg_json(out, cfg);
+    out << ",\n";
+    out << "  \"cfg_svg\": \"" << escape_json(cfg_svg) << "\"\n";
     out << "}\n";
 
     std::cout << out.str();

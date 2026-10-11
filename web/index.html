@@ -87,6 +87,37 @@
             margin-bottom: 8px;
             color: #333;
             font-size: 14px;
+            display: flex;
+            align-items: center;
+            gap: 12px;
+        }
+        .tabs {
+            display: inline-flex;
+            border: 1px solid #ccc;
+            border-radius: 6px;
+            overflow: hidden;
+            flex: 0 0 auto;
+        }
+        .tab-btn {
+            border: none;
+            border-radius: 0;
+            padding: 5px 14px;
+            font-size: 13px;
+            background: #fff;
+            color: #444;
+            cursor: pointer;
+        }
+        .tab-btn:hover {
+            background: #f0f0f0;
+        }
+        .tab-btn.active {
+            background: #1a1a2e;
+            color: #fff;
+        }
+        #viewTitle {
+            font-weight: 400;
+            color: #888;
+            font-size: 12px;
         }
         textarea {
             width: 100%;
@@ -163,8 +194,8 @@
 </head>
 <body>
     <header>
-        <h1>C++ AST Explorer</h1>
-        <span class="sub">LibTooling AST &rarr; JSON + SVG picture &rarr; browser</span>
+        <h1>C++ AST & CFG Explorer</h1>
+        <span class="sub">LibTooling AST / CFG &rarr; JSON + SVG &rarr; browser</span>
     </header>
     <div class="toolbar">
         <button id="parseBtn" class="primary">Parse</button>
@@ -177,11 +208,17 @@
             <textarea id="codeInput" spellcheck="false" placeholder="Paste C++ code here..."></textarea>
         </div>
         <div class="panel">
-            <div class="panel-title">AST picture (hover nodes for details)</div>
+            <div class="panel-title">
+                <span class="tabs">
+                    <button id="tabAst" class="tab-btn active">AST</button>
+                    <button id="tabCfg" class="tab-btn">CFG</button>
+                </span>
+                <span id="viewTitle">AST picture (hover nodes for details)</span>
+            </div>
             <div id="svgBox"><div class="placeholder">Paste C++ code and press Parse...</div></div>
             <div id="diagnostics" hidden></div>
             <details>
-                <summary>Raw AST (JSON)</summary>
+                <summary id="jsonSummary">Raw AST (JSON)</summary>
                 <pre id="jsonBox"></pre>
             </details>
         </div>
@@ -220,7 +257,23 @@ int main() {
         const svgBox = document.getElementById('svgBox');
         const diagEl = document.getElementById('diagnostics');
         const jsonBox = document.getElementById('jsonBox');
+        const tabAst = document.getElementById('tabAst');
+        const tabCfg = document.getElementById('tabCfg');
+        const viewTitle = document.getElementById('viewTitle');
+        const jsonSummary = document.getElementById('jsonSummary');
+        let currentData = null;
+        let currentTab = 'ast';
         let debounceTimer = null;
+
+        function setTab(tab) {
+            currentTab = tab;
+            tabAst.classList.toggle('active', tab === 'ast');
+            tabCfg.classList.toggle('active', tab === 'cfg');
+            if (currentData) render(currentData);
+        }
+
+        tabAst.addEventListener('click', () => setTab('ast'));
+        tabCfg.addEventListener('click', () => setTab('cfg'));
 
         // Safe error display without HTML injection.
         function setPlaceholder(message) {
@@ -250,6 +303,7 @@ int main() {
         }
 
         function render(data) {
+            currentData = data;
             if (data.error) {
                 statusEl.className = 'err';
                 statusEl.textContent = 'Error: ' + data.error;
@@ -259,12 +313,26 @@ int main() {
                 return;
             }
 
-            svgBox.innerHTML = data.svg || '';
-            if (!data.svg) setPlaceholder('No AST picture produced.');
+            const isCfg = currentTab === 'cfg';
+            const svg = isCfg ? (data.cfg_svg || '') : (data.svg || '');
+            svgBox.innerHTML = svg;
+            if (!svg) setPlaceholder(isCfg ? 'No CFG picture produced.' : 'No AST picture produced.');
+            viewTitle.textContent = isCfg
+                ? 'CFG picture (basic blocks, hover for details)'
+                : 'AST picture (hover nodes for details)';
 
             let st = '\u2713 ' + data.node_count + ' node(s), ' +
                      data.errors + ' error(s), ' + data.warnings + ' warning(s)';
             if (data.truncated) st += ' \u00b7 truncated';
+            if (isCfg && data.cfg && Array.isArray(data.cfg.blocks)) {
+                let bbs = 0, conds = 0;
+                for (const blk of data.cfg.blocks) {
+                    if (blk.kind === 'bb') bbs++;
+                    else if (blk.kind === 'condition') conds++;
+                }
+                st += ' \u00b7 ' + bbs + ' basic block(s)' +
+                      (conds ? ', ' + conds + ' condition(s)' : '');
+            }
             statusEl.className = data.errors ? 'err' : 'ok';
             statusEl.textContent = st;
 
@@ -275,7 +343,8 @@ int main() {
                 diagEl.hidden = true;
             }
 
-            jsonBox.textContent = JSON.stringify(data.ast, null, 2);
+            jsonSummary.textContent = isCfg ? 'Raw CFG (JSON)' : 'Raw AST (JSON)';
+            jsonBox.textContent = JSON.stringify(isCfg ? data.cfg : data.ast, null, 2);
         }
 
         codeInput.addEventListener('input', () => {

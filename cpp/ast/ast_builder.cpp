@@ -138,7 +138,7 @@ std::string AstBuilder::stmt_detail(clang::Stmt* s) const {
     if (auto* bo = clang::dyn_cast<clang::BinaryOperator>(s))
         return bo->getOpcodeStr().str();
     if (auto* uo = clang::dyn_cast<clang::UnaryOperator>(s))
-        return clang::UnaryOperator::getOpcodeStr(uo->getOpcode()).str();
+        return clang::UnaryOperator::getOpcodeStr(uo->getOpcode()).str(); // genuinely why does BinaryOperator have a public variant of this, but UnaryOperator does not?
     if (auto* il = clang::dyn_cast<clang::IntegerLiteral>(s))
         return truncate(int_to_string(il->getValue(),
                                       il->getType()->isSignedIntegerType()), 24);
