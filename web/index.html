@@ -226,6 +226,84 @@
                 flex-direction: column;
             }
         }
+
+        /* ---- Sample menu + save modal ---- */
+        .sample-menu { position: relative; }
+        .dropdown {
+            position: absolute;
+            top: calc(100% + 6px);
+            left: 0;
+            min-width: 260px;
+            max-width: 360px;
+            background: #fff;
+            border: 1px solid #d0d0d0;
+            border-radius: 8px;
+            box-shadow: 0 6px 24px rgba(0,0,0,0.12);
+            z-index: 20;
+            padding: 6px;
+        }
+        /* IMPORTANT: the [hidden] attribute must win over display:flex/block. */
+        .dropdown[hidden] { display: none; }
+
+        .dropdown-list { max-height: 340px; overflow: auto; }
+        .dropdown-item {
+            display: block;
+            width: 100%;
+            text-align: left;
+            border: none;
+            background: transparent;
+            border-radius: 6px;
+            padding: 8px 10px;
+            font-size: 13px;
+            cursor: pointer;
+        }
+        .dropdown-item:hover { background: #f0f0f5; }
+        .dropdown-item .desc {
+            display: block;
+            color: #888;
+            font-size: 11px;
+            margin-top: 2px;
+        }
+        .dropdown-sep { height: 1px; background: #eee; margin: 6px 0; }
+        .dropdown-empty { color: #999; font-style: italic; padding: 8px 10px; font-size: 13px; }
+
+        .modal { position: fixed; inset: 0; z-index: 100; display: flex; align-items: center; justify-content: center; }
+        /* IMPORTANT: the [hidden] attribute must win over display:flex. */
+        .modal[hidden] { display: none; }
+
+        .modal-backdrop { position: absolute; inset: 0; background: rgba(0,0,0,0.35); }
+        .modal-body {
+            position: relative;
+            background: #fff;
+            border-radius: 10px;
+            padding: 20px 22px;
+            width: min(480px, 92vw);
+            box-shadow: 0 12px 40px rgba(0,0,0,0.25);
+        }
+        .modal-body h2 { margin: 0 0 14px; font-size: 16px; }
+        .modal-body label { display: block; font-size: 13px; color: #333; margin-bottom: 12px; }
+        .modal-body input[type="text"],
+        .modal-body textarea {
+            display: block;
+            width: 100%;
+            margin-top: 6px;
+            box-sizing: border-box;
+            padding: 8px 10px;
+            border: 1px solid #ccc;
+            border-radius: 6px;
+            font-size: 13px;
+            font-family: inherit;
+        }
+        .modal-actions { display: flex; justify-content: flex-end; gap: 8px; margin-top: 4px; }
+        .modal-error {
+            margin-top: 10px;
+            background: #fdecea;
+            border: 1px solid #ef9a9a;
+            color: #b71c1c;
+            border-radius: 6px;
+            padding: 8px 10px;
+            font-size: 12px;
+        }
     </style>
 </head>
 <body>
@@ -234,8 +312,18 @@
         <span class="sub">LibTooling AST / CFG &rarr; JSON + SVG &rarr; browser</span>
     </header>
     <div class="toolbar">
-        <button id="parseBtn" class="primary">Parse</button>
-        <button id="sampleBtn">Load sample</button>
+        <button id="parseBtn" class="primary" type="button">Parse</button>
+
+        <div class="sample-menu">
+            <button id="samplesBtn" type="button">Samples &#9662;</button>
+            <div id="samplesDropdown" class="dropdown" hidden>
+                <div id="samplesList" class="dropdown-list"></div>
+                <div class="dropdown-sep"></div>
+                <button id="manageSamplesBtn" class="dropdown-item" type="button">Manage samples&hellip;</button>
+            </div>
+        </div>
+
+        <button id="saveSampleBtn" type="button">Save as sample&hellip;</button>
         <span id="status">Ready.</span>
     </div>
     <div class="main">
@@ -249,8 +337,8 @@
         <div class="panel">
             <div class="panel-title">
                 <span class="tabs">
-                    <button id="tabAst" class="tab-btn active">AST</button>
-                    <button id="tabCfg" class="tab-btn">CFG</button>
+                    <button id="tabAst" class="tab-btn active" type="button">AST</button>
+                    <button id="tabCfg" class="tab-btn" type="button">CFG</button>
                 </span>
                 <span id="viewTitle">AST picture (hover nodes for details)</span>
             </div>
@@ -263,35 +351,27 @@
         </div>
     </div>
 
+    <div id="saveModal" class="modal" hidden>
+        <div class="modal-backdrop"></div>
+        <div class="modal-body">
+            <h2>Save sample</h2>
+            <label>Name
+                <input id="saveName" type="text" placeholder="e.g. Range-based for loop">
+            </label>
+            <label>Description
+                <textarea id="saveDesc" rows="3" placeholder="Short description of what this sample demonstrates"></textarea>
+            </label>
+            <div class="modal-actions">
+                <button id="saveCancel" type="button">Cancel</button>
+                <button id="saveConfirm" class="primary" type="button">Save</button>
+            </div>
+            <div id="saveError" class="modal-error" hidden></div>
+        </div>
+    </div>
+
     <script>
-        const SAMPLE = `#include <iostream>
-#include <vector>
-
-struct Point {
-    int x;
-    int y;
-};
-
-int square(int n) {
-    return n * n;
-}
-
-int main() {
-    std::vector<Point> points;
-    for (int i = 0; i < 3; ++i) {
-        points.push_back({i, i * i});
-    }
-    int total = 0;
-    for (const Point& p : points) {
-        total += square(p.x) + p.y;
-    }
-    std::cout << "total: " << total << std::endl;
-    return 0;
-}`;
-
         const codeInput = document.getElementById('codeInput');
         const parseBtn = document.getElementById('parseBtn');
-        const sampleBtn = document.getElementById('sampleBtn');
         const statusEl = document.getElementById('status');
         const svgBox = document.getElementById('svgBox');
         const diagEl = document.getElementById('diagnostics');
@@ -315,7 +395,7 @@ int main() {
         ].join('|'), 'gm');
 
         function escapeHtml(s) {
-            return s.replace(/&/g, '&').replace(/</g, '<').replace(/>/g, '>');
+            return s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
         }
 
         function highlightCpp(text) {
@@ -365,21 +445,36 @@ int main() {
             svgBox.appendChild(div);
         }
 
+        // ---- JSON fetch helper: gives real errors instead of "unexpected end of data". ----
+        async function fetchJson(url, options) {
+            const res = await fetch(url, options);
+            const text = await res.text();
+            let body = null;
+            try {
+                body = text ? JSON.parse(text) : null;
+            } catch (e) {
+                throw new Error('Server returned non-JSON (' + res.status + '): ' + text.slice(0, 200));
+            }
+            if (!res.ok) {
+                throw new Error((body && body.error) || ('HTTP ' + res.status));
+            }
+            return body;
+        }
+
         async function parse(text) {
             statusEl.className = 'busy';
             statusEl.textContent = 'Parsing in C++ (clang)...';
             try {
-                const res = await fetch('/process', {
+                const data = await fetchJson('/process', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({ text: text })
                 });
-                const data = await res.json();
                 render(data);
             } catch (err) {
                 statusEl.className = 'err';
-                statusEl.textContent = 'Request failed: ' + err;
-                setPlaceholder(String(err));
+                statusEl.textContent = 'Request failed: ' + err.message;
+                setPlaceholder(err.message);
             }
         }
 
@@ -523,17 +618,222 @@ int main() {
             }
         });
 
-        sampleBtn.addEventListener('click', () => {
-            codeInput.value = SAMPLE;
-            updateHighlight();
-            if (debounceTimer) clearTimeout(debounceTimer);
-            parse(SAMPLE);
+        // ---- Sample library ----
+
+        const samplesBtn = document.getElementById('samplesBtn');
+        const samplesDropdown = document.getElementById('samplesDropdown');
+        const samplesList = document.getElementById('samplesList');
+        const manageSamplesBtn = document.getElementById('manageSamplesBtn');
+        const saveSampleBtn = document.getElementById('saveSampleBtn');
+
+        const saveModal = document.getElementById('saveModal');
+        const saveName = document.getElementById('saveName');
+        const saveDesc = document.getElementById('saveDesc');
+        const saveCancel = document.getElementById('saveCancel');
+        const saveConfirm = document.getElementById('saveConfirm');
+        const saveError = document.getElementById('saveError');
+
+        async function refreshSamplesList() {
+            try {
+                const data = await fetchJson('/samples');
+                const samples = (data && data.samples) || [];
+                samplesList.textContent = '';
+                if (!samples.length) {
+                    const empty = document.createElement('div');
+                    empty.className = 'dropdown-empty';
+                    empty.textContent = 'No samples yet.';
+                    samplesList.appendChild(empty);
+                    return;
+                }
+                for (const s of samples) {
+                    const btn = document.createElement('button');
+                    btn.className = 'dropdown-item';
+                    btn.type = 'button';
+                    const nameEl = document.createElement('div');
+                    nameEl.textContent = s.name;
+                    btn.appendChild(nameEl);
+                    if (s.description) {
+                        const desc = document.createElement('span');
+                        desc.className = 'desc';
+                        desc.textContent = s.description;
+                        btn.appendChild(desc);
+                    }
+                    btn.addEventListener('click', () => loadSampleById(s.id));
+                    samplesList.appendChild(btn);
+                }
+            } catch (err) {
+                samplesList.textContent = '';
+                const empty = document.createElement('div');
+                empty.className = 'dropdown-empty';
+                empty.textContent = 'Failed to load samples: ' + err.message;
+                samplesList.appendChild(empty);
+            }
+        }
+
+        async function loadSampleById(id) {
+            try {
+                const data = await fetchJson('/samples/' + encodeURIComponent(id));
+                codeInput.value = data.code || '';
+                updateHighlight();
+                closeDropdown();
+                if (debounceTimer) clearTimeout(debounceTimer);
+                parse(codeInput.value);
+            } catch (err) {
+                statusEl.className = 'err';
+                statusEl.textContent = 'Failed to load sample: ' + err.message;
+            }
+        }
+
+        function openDropdown() {
+            samplesDropdown.hidden = false;
+            refreshSamplesList();
+        }
+
+        function closeDropdown() {
+            samplesDropdown.hidden = true;
+        }
+
+        samplesBtn.addEventListener('click', (e) => {
+            e.stopPropagation();
+            if (samplesDropdown.hidden) openDropdown();
+            else closeDropdown();
         });
 
-        // Load the sample on first visit.
-        codeInput.value = SAMPLE;
-        updateHighlight();
-        parse(SAMPLE);
+        document.addEventListener('click', (e) => {
+            if (!samplesDropdown.hidden && !samplesDropdown.contains(e.target) && e.target !== samplesBtn) {
+                closeDropdown();
+            }
+        });
+
+        manageSamplesBtn.addEventListener('click', () => {
+            closeDropdown();
+            alert('Samples are stored as JSON files in the "samples/" directory next to index.html.');
+        });
+
+        // ---- Save sample modal ----
+
+        function openSaveModal() {
+            saveError.hidden = true;
+            saveError.textContent = '';
+            saveName.value = '';
+            saveDesc.value = '';
+            saveModal.hidden = false;
+            saveName.focus();
+        }
+
+        function closeSaveModal() {
+            saveModal.hidden = true;
+            saveConfirm.disabled = false;
+            saveConfirm.textContent = 'Save';
+        }
+
+        saveSampleBtn.addEventListener('click', openSaveModal);
+        saveCancel.addEventListener('click', (e) => {
+            e.preventDefault();
+            e.stopPropagation();
+            closeSaveModal();
+        });
+
+        document.querySelector('#saveModal .modal-backdrop').addEventListener('click', closeSaveModal);
+
+        document.addEventListener('keydown', (e) => {
+            if (e.key === 'Escape' && !saveModal.hidden) closeSaveModal();
+        });
+
+        saveConfirm.addEventListener('click', async (e) => {
+            e.preventDefault();
+            e.stopPropagation();
+            const name = saveName.value.trim();
+            const description = saveDesc.value.trim();
+            const code = codeInput.value;
+            if (!name) {
+                saveError.hidden = false;
+                saveError.textContent = 'Please enter a name.';
+                return;
+            }
+            saveConfirm.disabled = true;
+            saveConfirm.textContent = 'Saving\u2026';
+            try {
+                const data = await fetchJson('/samples', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ name, description, code })
+                });
+                closeSaveModal();
+                statusEl.className = 'ok';
+                statusEl.textContent = 'Saved sample: ' + (data.sample ? data.sample.name : name);
+                refreshSamplesList();
+            } catch (err) {
+                saveError.hidden = false;
+                saveError.textContent = 'Save failed: ' + err.message;
+                saveConfirm.disabled = false;
+                saveConfirm.textContent = 'Save';
+            }
+        });
+
+        // ---- First-visit seeding + boot ----
+
+        const DEFAULT_SAMPLE_CODE = `#include <iostream>
+#include <vector>
+
+struct Point {
+    int x;
+    int y;
+};
+
+int square(int n) {
+    return n * n;
+}
+
+int main() {
+    std::vector<Point> points;
+    for (int i = 0; i < 3; ++i) {
+        points.push_back({i, i * i});
+    }
+    int total = 0;
+    for (const Point& p : points) {
+        total += square(p.x) + p.y;
+    }
+    std::cout << "total: " << total << std::endl;
+    return 0;
+}`;
+
+        async function ensureDefaultSample() {
+            try {
+                const data = await fetchJson('/samples');
+                if (data && data.samples && data.samples.length === 0) {
+                    await fetchJson('/samples', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({
+                            name: 'Default (STL + loops)',
+                            description: 'Structs, range-for, vector, iostream.',
+                            code: DEFAULT_SAMPLE_CODE
+                        })
+                    });
+                }
+            } catch (err) {
+                statusEl.className = 'err';
+                statusEl.textContent = 'Sample library unavailable: ' + err.message;
+            }
+        }
+
+        (async () => {
+            // Start empty (do NOT auto-load a sample into the editor).
+            codeInput.value = '';
+            updateHighlight();
+
+            await ensureDefaultSample();
+
+            try {
+                const data = await fetchJson('/samples');
+                if (data && data.samples && data.samples.length) {
+                    await loadSampleById(data.samples[0].id);
+                }
+            } catch (_) {
+                // Already reported above; leave the editor empty.
+            }
+        })();
     </script>
 </body>
 </html>

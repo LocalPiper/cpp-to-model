@@ -1,0 +1,5 @@
+{
+  "name": "assignment shenanigans",
+  "description": "",
+  "code": "int main() {\n   int x, y, z;\n   int gg = x = y = 1;\n}"
+}

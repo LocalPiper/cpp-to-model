@@ -1,0 +1,5 @@
+{
+  "name": "Default (STL + loops)",
+  "description": "Structs, range-for, vector, iostream.",
+  "code": "\nint main() {\n    int a = 1;\n    int b = 2;\n    int c = a + b;\n}"
+}
