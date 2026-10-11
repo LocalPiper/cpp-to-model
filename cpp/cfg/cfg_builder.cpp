@@ -31,6 +31,10 @@ bool CfgBuilder::isValueNode(const Node& n) const {
         || n.kind == "CXXThisExpr";
 }
 
+bool CfgBuilder::isSpecialUnary(const std::string& op) const {
+    return op == "sizeof" || op == "alignof";
+}
+
 bool CfgBuilder::isCompoundAssign(const std::string& op) const {
     static const char* const kCompound[] = { "+=", "-=", "*=", "/=", "%=",
                                              "<<=", ">>=", "&=", "|=", "^=" };
@@ -97,10 +101,9 @@ std::string CfgBuilder::walkUnary(int e, bool temp_needed, bool value_needed) {
         return value_needed ? dest : "";
     }
 
-    // arithmetic/logical unary
     const std::string operand = walkExpr(expr_node.children.front(), true, true);
     if (operand.empty()) return "";
-    const std::string expr = (op == "sizeof" ? op + " " : op) + operand;
+    const std::string expr = (isSpecialUnary(op) ? op + " " : op) + operand;
     if (!temp_needed) return expr;
     const std::string t = makeTemp();
     addToBlock(t + " = " + expr);

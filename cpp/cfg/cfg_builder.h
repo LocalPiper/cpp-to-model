@@ -46,6 +46,7 @@ private:
     bool isCompoundAssign(const std::string& op) const;
     std::string compoundBase(const std::string& op) const;
     bool isPostfixUnary(const Node& n) const;
+    bool isSpecialUnary(const std::string& op) const;
 
     const Node& getNode(int i) const;
     void addToBlock(const std::string& stmt);
