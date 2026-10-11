@@ -1,0 +1,5 @@
+{
+  "name": "multi_var_expr",
+  "description": "Long expression chain involving many variables.",
+  "code": "// TODO: nested ternary\nint main() {\n    int a = 1;\n    int b = 2;\n    int c = 3;\n    int d = 4;\n    int e = 5;\n    int f = a + b - c * d / e % a;\n    int g = a & b | c ^ d << e >> a;\n    bool h = a < b && c > d || e == a;\n    int i = a ? b : c ? d : e;\n}"
+}

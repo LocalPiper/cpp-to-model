@@ -1,0 +1,5 @@
+{
+  "name": "pointer_arithmetic",
+  "description": "Pointer declarations, dereference, arithmetic, and compound expressions.",
+  "code": "int main() {\n    int a = 10;\n    int b = 20;\n    int* p = &a;\n    int* q = &b;\n    int c = *p + *q;\n    int d = *p * *q;\n    *p = *q;\n    int e = *(p) - *(q);\n}"
+}

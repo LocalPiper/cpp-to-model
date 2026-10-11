@@ -1,0 +1,5 @@
+{
+  "name": "compound_assignment",
+  "description": "All compound assignment operators.",
+  "code": "// TODO: compound assignment operators\nint main() {\n    int a = 10;\n    a += 5;\n    a -= 3;\n    a *= 2;\n    a /= 4;\n    a %= 3;\n    a &= 7;\n    a |= 8;\n    a ^= 1;\n    a <<= 2;\n    a >>= 1;\n}"
+}

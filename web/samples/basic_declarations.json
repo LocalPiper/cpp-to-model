@@ -1,0 +1,5 @@
+{
+  "name": "basic_declarations",
+  "description": "Simple declarations with initialization of each primitive type.",
+  "code": "int main() {\n    int a = 5;\n    float b = 3.14f;\n    double c = 2.718;\n    char d = 'x';\n    bool e = true;\n    short f = 10;\n    long g = 100000L;\n    unsigned int h = 42u;\n}"
+}

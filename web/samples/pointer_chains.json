@@ -1,0 +1,5 @@
+{
+  "name": "pointer_chains",
+  "description": "Pointer-to-pointer, address-of chains, dereference chains.",
+  "code": "int main() {\n    int a = 42;\n    int* p = &a;\n    int** pp = &p;\n    int b = **pp;\n    int c = *&a;\n    int d = *&*&a;\n    *p = b + c;\n    **pp = d;\n}"
+}

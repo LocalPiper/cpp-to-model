@@ -1,0 +1,5 @@
+{
+  "name": "uninitialized_then_assigned",
+  "description": "Declarations without initializers, then assigned later — tests declaration vs assignment node handling.",
+  "code": "int main() {\n    int a;\n    int b;\n    float c;\n    double d;\n    char e;\n    bool f;\n    int* p;\n    a = 1;\n    b = a + 2;\n    c = 3.0f;\n    d = 4.0;\n    e = 'q';\n    f = true;\n    p = &a;\n    *p = b;\n}"
+}

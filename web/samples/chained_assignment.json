@@ -1,0 +1,5 @@
+{
+  "name": "chained_assignment",
+  "description": "Tests chained assignment across multiple variables.",
+  "code": "int main() {\n    int a;\n    int b;\n    int c;\n    a = b = c = 7;\n}"
+}

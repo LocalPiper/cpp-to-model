@@ -1,0 +1,5 @@
+{
+  "name": "unary_operators",
+  "description": "Exercises all unary operators including prefix/postfix inc/dec, logical not, bitwise not, unary minus/plus, dereference, address-of.",
+  "code": "int main() {\n    int a = 5;\n    int b = -a;\n    int c = +a;\n    int d = ~a;\n    bool e = !a;\n    int f = a++;\n    int g = ++a;\n    int h = a--;\n    int i = --a;\n    int* p = &a;\n    int j = *p;\n}"
+}

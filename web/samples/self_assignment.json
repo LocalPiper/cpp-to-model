@@ -1,0 +1,5 @@
+{
+  "name": "self_assignment",
+  "description": "Assignments where source and destination overlap.",
+  "code": "// TODO: compound assignment\nint main() {\n    int a = 5;\n    a = a;\n    a = a + a;\n    a = a * a - a;\n    a += a;\n    a *= a + 1;\n    int* p = &a;\n    *p = *p + a;\n}"
+}

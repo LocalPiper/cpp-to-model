@@ -1,0 +1,5 @@
+{
+  "name": "comparison_logical",
+  "description": "Comparison and logical operators, mixed.",
+  "code": "int main() {\n    int a = 5;\n    int b = 3;\n    bool c = a < b;\n    bool d = a > b;\n    bool e = a <= b;\n    bool f = a >= b;\n    bool g = a == b;\n    bool h = a != b;\n    bool i = c && d;\n    bool j = c || d;\n    bool k = (a < b) && (c || d);\n}"
+}

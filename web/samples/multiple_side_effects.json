@@ -1,0 +1,5 @@
+{
+  "name": "multiple_side_effects",
+  "description": "Multiple side-effecting subexpressions in a single expression (sequencing stress).",
+  "code": "int main() {\n    int a = 1;\n    int b = 2;\n    int c = 3;\n    int d = a++ + ++b + c--;\n    int e = (a = b) + (b = c) + (c = a);\n    int f = a++ * b-- + ++c;\n}"
+}

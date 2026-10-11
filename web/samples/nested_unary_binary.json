@@ -1,0 +1,5 @@
+{
+  "name": "nested_unary_binary",
+  "description": "Deeply nested expression combining unary, binary, ternary, and assignment.",
+  "code": "// TODO: ternary operator\nint main() {\n    int a = 5;\n    int b = 3;\n    int c = 2;\n    int d = -a + b * ~c - (a > b ? c : b);\n    int e = !(a && b) || (c != a);\n    int f = a++ + --b * c--;\n    bool g = (a < b) == (c > d);\n    int h = *(&a) + *(&b);\n}"
+}

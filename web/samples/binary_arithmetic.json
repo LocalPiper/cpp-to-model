@@ -1,0 +1,5 @@
+{
+  "name": "binary_arithmetic",
+  "description": "All arithmetic binary operators, with precedence mixing.",
+  "code": "int main() {\n    int a = 5;\n    int b = 3;\n    int c = a + b;\n    int d = a - b;\n    int e = a * b;\n    int f = a / b;\n    int g = a % b;\n    int h = a + b * c - d / e;\n}"
+}

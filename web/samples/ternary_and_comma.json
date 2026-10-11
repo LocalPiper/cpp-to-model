@@ -1,0 +1,5 @@
+{
+  "name": "ternary_and_comma",
+  "description": "Ternary operator and comma operator.",
+  "code": "// TODO: ternaries and comma-operator\nint main() {\n    int a = 5;\n    int b = 3;\n    int c = a > b ? a : b;\n    int d = (a = 1, b = 2, a + b);\n}"
+}
