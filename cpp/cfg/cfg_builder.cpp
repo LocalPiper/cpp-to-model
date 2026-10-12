@@ -208,6 +208,8 @@ void CfgBuilder::walkStmt(int s) {
         walkWhile(s);
     } else if (stmt_node.kind == "ForStmt") {
         walkFor(s);
+    } else if (stmt_node.kind == "DoStmt") {
+        walkDoWhile(s);
     } else if (stmt_node.kind == "BreakStmt") {
         walkBreak();
     } else if (stmt_node.kind == "ContinueStmt") {
@@ -357,6 +359,33 @@ void CfgBuilder::walkFor(int s) {
     m_current = join_bb;
 }
 
+void CfgBuilder::walkDoWhile(int s) {
+    const Node& dowhile_node = getNode(s);
+
+    assert(dowhile_node.children.size() == 2);
+
+    int body_i = dowhile_node.children[0];
+    int cond_i = dowhile_node.children[1];
+    
+    int cond_bb = newBlock();
+    int join_bb = newBlock();
+
+    m_break_targets.push_back(join_bb);
+    m_continue_targets.push_back(cond_bb);
+
+    sealTo(cond_bb);
+    m_current = cond_bb;
+    walkStmt(body_i);
+
+    std::string c = walkExpr(cond_i);
+    branch(c, cond_bb, join_bb);
+
+    m_break_targets.pop_back();
+    m_continue_targets.pop_back();
+
+    m_current = join_bb;
+}
+
 void CfgBuilder::walkBreak() {
     assert(!m_break_targets.empty());
     sealTo(m_break_targets.back());
@@ -364,7 +393,6 @@ void CfgBuilder::walkBreak() {
 }
 
 void CfgBuilder::walkContinue() {
-    // should probably return to it once i do for-loop
     assert(!m_continue_targets.empty());
     sealTo(m_continue_targets.back());
     m_current = newBlock();
