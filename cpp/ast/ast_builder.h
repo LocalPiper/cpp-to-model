@@ -30,7 +30,7 @@ private:
     int m_current = 0;
     int m_depth = 0;
 
-    void add(NodeCategory cat, const std::string& kind, const std::string& detail,
+    int add(NodeCategory cat, const std::string& kind, const std::string& detail,
              const std::string& type, const std::string& range);
     bool limit_hit();
 
@@ -40,6 +40,7 @@ private:
     std::string stmt_detail(clang::Stmt* s) const;
     std::string stmt_type(clang::Stmt* s) const;
     bool is_transparent(clang::Stmt* s) const;
+    void walk_placeholder_or(clang::Stmt* s, const char* kind);
 
     void walkDecl(clang::Decl* d);
     void walkStmt(clang::Stmt* s);

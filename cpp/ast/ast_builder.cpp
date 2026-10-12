@@ -87,7 +87,7 @@ void AstBuilder::build(clang::ASTContext& ctx) {
     for (auto* d : ctx.getTranslationUnitDecl()->decls()) walkDecl(d);
 }
 
-void AstBuilder::add(NodeCategory cat, const std::string& kind,
+int AstBuilder::add(NodeCategory cat, const std::string& kind,
                      const std::string& detail, const std::string& type,
                      const std::string& range) {
     Node n;
@@ -96,8 +96,10 @@ void AstBuilder::add(NodeCategory cat, const std::string& kind,
     n.detail = display_escape(truncate(detail, 60));
     n.type = truncate(type, 60);
     n.range = range;
-    m_tree.nodes[m_current].children.push_back(static_cast<int>(m_tree.nodes.size()));
+    int idx = static_cast<int>(m_tree.nodes.size());
+    m_tree.nodes[m_current].children.push_back(idx);
     m_tree.nodes.push_back(std::move(n));
+    return idx;
 }
 
 bool AstBuilder::limit_hit() {
@@ -232,15 +234,24 @@ bool AstBuilder::is_transparent(clang::Stmt* s) const {
            clang::isa<clang::OpaqueValueExpr>(s);
 }
 
+void AstBuilder::walk_placeholder_or(clang::Stmt* s, const char* kind) {
+    if (s) {
+        walkStmt(s);
+        return;
+    }
+    add(NodeCategory::Statement, kind, "", "", "");
+}
+
 void AstBuilder::walkDecl(clang::Decl* d) {
     if (!d) return;
     if (d->isImplicit()) return;
     if (limit_hit()) return;
 
     int parent = m_current;
-    add(NodeCategory::Declaration, std::string(d->getDeclKindName()), decl_detail(d),
+    int idx = add(NodeCategory::Declaration, std::string(d->getDeclKindName()), decl_detail(d),
         decl_type(d), range_str(m_sm, d->getSourceRange()));
-    m_current = static_cast<int>(m_tree.nodes.size()) - 1;
+    
+    m_current = idx;
     ++m_depth;
 
     if (auto* fd = clang::dyn_cast<clang::FunctionDecl>(d)) {
@@ -270,13 +281,37 @@ void AstBuilder::walkStmt(clang::Stmt* s) {
     int parent = m_current;
     NodeCategory cat =
         clang::isa<clang::Expr>(s) ? NodeCategory::Expression : NodeCategory::Statement;
-    add(cat, std::string(s->getStmtClassName()), stmt_detail(s),
+    int idx = add(cat, std::string(s->getStmtClassName()), stmt_detail(s),
         stmt_type(s), range_str(m_sm, s->getSourceRange()));
-    m_current = static_cast<int>(m_tree.nodes.size()) - 1;
+    
+    m_current = idx;
     ++m_depth;
 
     if (auto* ds = clang::dyn_cast<clang::DeclStmt>(s)) {
         for (auto* d : ds->decls()) walkDecl(d);
+    } else if (auto* ifs = clang::dyn_cast<clang::IfStmt>(s)) {
+        walk_placeholder_or(ifs->getInit(), "EmptyInit");
+        walkStmt(ifs->getCond());
+        walkStmt(ifs->getThen());
+        walk_placeholder_or(ifs->getElse(), "EmptyElse");
+    } else if (auto* ws = clang::dyn_cast<clang::WhileStmt>(s)) {
+        // surprise-surprise, this:
+        // if (int x = 1; x < 10) { ... }
+        // is allowed, but this
+        // while (int x = 1; x < 10) { ... }
+        // is apparently illegal syntax
+        walk_placeholder_or(ws->getConditionVariableDeclStmt(), "NoConditionVar");
+        walkStmt(ws->getCond());
+        walkStmt(ws->getBody());
+    } else if (auto* fs = clang::dyn_cast<clang::ForStmt>(s)) {
+        walk_placeholder_or(fs->getInit(), "EmptyInit");
+        walk_placeholder_or(fs->getCond(), "EmptyCond");
+        walk_placeholder_or(fs->getInc(), "EmptyInc");
+        walkStmt(fs->getBody());
+    } else if (auto* ss = clang::dyn_cast<clang::SwitchStmt>(s)) {
+        walk_placeholder_or(ss->getInit(), "EmptyInit");
+        walkStmt(ss->getCond());
+        walkStmt(ss->getBody());
     } else {
         for (auto* child : s->children()) walkStmt(child);
     }

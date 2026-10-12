@@ -223,25 +223,34 @@ void CfgBuilder::walkStmt(int s) {
 
 void CfgBuilder::walkIf(int s) {
     const Node& if_node = getNode(s);
+    assert(if_node.children.size() == 4);
 
-    std::string cond = walkExpr(if_node.children.front(), true, true);
+    int init_i = if_node.children[0];
+    int cond_i = if_node.children[1];
+    int then_i = if_node.children[2];
+    int else_i = if_node.children[3];
+
+    if (getNode(init_i).kind != "EmptyInit") {
+        walkStmt(init_i);
+    }
+
+    std::string cond = walkExpr(cond_i, true, true);
 
     int then_bb = newBlock();
     int join_bb = newBlock();
 
-    bool has_else = (if_node.children.size() > 2);
+    bool has_else = (getNode(else_i).kind != "EmptyElse");
     int else_bb = has_else ? newBlock() : join_bb;
 
     branch(cond, then_bb, else_bb);
 
-    // then branch is guaranteed in any if statement
     m_current = then_bb;
-    walkStmt(if_node.children[1]);
+    walkStmt(then_i);
     sealTo(join_bb);
 
     if (has_else) {
         m_current = else_bb;
-        walkStmt(if_node.children[2]);
+        walkStmt(else_i);
         sealTo(join_bb);
     }
 
@@ -251,6 +260,14 @@ void CfgBuilder::walkIf(int s) {
 void CfgBuilder::walkWhile(int s) {
     const Node& while_node = getNode(s);
 
+    assert(while_node.children.size() == 3);
+
+    int condvar_i = while_node.children[0];
+    int cond_i = while_node.children[1];
+    int body_i = while_node.children[2];
+
+    bool has_condvar = getNode(condvar_i).kind != "NoConditionVar";
+
     int cond_bb = newBlock();
     int body_bb = newBlock();
     int join_bb = newBlock();
@@ -258,14 +275,17 @@ void CfgBuilder::walkWhile(int s) {
     sealTo(cond_bb);
 
     m_current = cond_bb;
-    std::string c = walkExpr(while_node.children.front());
+    if (has_condvar) {
+        walkStmt(condvar_i);
+    }
+    std::string c = walkExpr(cond_i);
     branch(c, body_bb, join_bb);
 
     m_break_targets.push_back(join_bb); // breaks and false branch
     m_continue_targets.push_back(cond_bb); // continues and true branch
     
     m_current = body_bb;
-    walkStmt(while_node.children[1]);
+    walkStmt(body_i);
     sealTo(cond_bb); // backedge
 
     m_break_targets.pop_back();
