@@ -154,6 +154,12 @@ std::string CfgBuilder::walkBinary(int e, bool temp_needed, bool value_needed) {
         return val;
     }
 
+    if (op == ",") {
+        // comma operator
+        (void)walkExpr(lhs_i, false, false);
+        return walkExpr(rhs_i, temp_needed, value_needed);
+    }
+
     if (isCompoundAssign(op)) {
         // "a OP= b" -> "a = a OP b";
         const std::string dest = walkExpr(lhs_i, true, true);
