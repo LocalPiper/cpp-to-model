@@ -14,11 +14,37 @@ const Node& CfgBuilder::getNode(int i) const {
     return m_tree.nodes[i];
 }
 
+int CfgBuilder::newBlock() {
+    m_cfg.blocks.push_back(BB{});
+    return static_cast<int>(m_cfg.blocks.size() - 1);
+}
+
 void CfgBuilder::addToBlock(const std::string& stmt) {
     assert(m_current != -1 && m_current < static_cast<int>(m_cfg.blocks.size()));
-    assert(std::holds_alternative<BB>(m_cfg.blocks[m_current]));
-    std::get<BB>(m_cfg.blocks[m_current]).statements.push_back(stmt);
+    m_cfg.blocks[m_current].statements.push_back(stmt);
 }
+
+int CfgBuilder::branch(const std::string& cond, int on_true, int on_false) {
+    Terminator t{};
+    t.kind = TermKind::Branch;
+    t.cond = cond;
+    t.on_true = on_true;
+    t.on_false = on_false;
+    m_cfg.blocks[m_current].term = t;
+    return -1;
+}
+
+void CfgBuilder::sealTo(int target) {
+    BB& b = m_cfg.blocks[m_current];
+    if (b.term.kind == TermKind::Fallthrough) {
+        Terminator t{};
+        t.kind = TermKind::Jump;
+        t.target = target;
+        b.term = t;
+    }
+    // if not - the block is already sealed (non-fallthrough is already handled)
+}
+
 
 bool CfgBuilder::isValueNode(const Node& n) const {
     return n.kind == "IntegerLiteral"
@@ -170,6 +196,8 @@ void CfgBuilder::walkStmt(int s) {
             if (lhs.empty() || rhs.empty()) continue;
             addToBlock(lhs + " = " + rhs);
         }
+    } else if (stmt_node.kind == "IfStmt") {
+        walkIf(s);
     } else if (stmt_node.cat == NodeCategory::Expression) {
         // a standalone expression used as a statement, e.g. "x = 5;", "y++;"
         // its value is discarded; only side effects reach the CFG
@@ -177,6 +205,34 @@ void CfgBuilder::walkStmt(int s) {
         walkExpr(s, false, false);
     }
 }
+
+
+void CfgBuilder::walkIf(int s) {
+    const Node& if_node = getNode(s);
+
+    std::string cond = walkExpr(if_node.children.front(), true, true);
+
+    int then_bb = newBlock();
+    int else_bb = newBlock();
+    int join_bb = newBlock();
+
+    branch(cond, then_bb, else_bb);
+
+    // then branch is guaranteed in any if statement
+    m_current = then_bb;
+    walkStmt(if_node.children[1]);
+    sealTo(join_bb);
+
+    m_current = else_bb;
+    if (if_node.children.size() > 2) {
+        walkStmt(if_node.children[2]);
+    }
+    // handles both else block and fallthrough
+    sealTo(join_bb);
+
+    m_current = join_bb;
+}
+
 
 void CfgBuilder::walkFunction(int f) {
     const Node& func_node = getNode(f);

@@ -5,25 +5,33 @@
 #include <variant>
 
 namespace cpp2model {
+enum class TermKind {Fallthrough, Jump, Branch, Switch, Return };
+
+struct Terminator {
+    TermKind kind = TermKind::Fallthrough;
+    // branch
+    std::string cond;
+    int on_true = -1;
+    int on_false = -1;
+    // jump
+    int target = -1;
+    // switch
+    std::string switch_val;
+    std::vector<std::pair<long long, int>> cases;
+    int default_target = -1;
+    // return
+    std::string ret_val;
+
+};
 
 struct BB {
     std::vector<std::string> statements;
-    int points_to;
+    Terminator term;
 };
-
-
-struct Condition {
-    std::string cond;
-    int on_true;
-    int on_false;
-};
-
-
-using CfgComponent = std::variant<BB, Condition>;
 
 struct Cfg {
     std::string func_decl;
-    std::vector<CfgComponent> blocks;
+    std::vector<BB> blocks;
 };
 
 class CfgBuilder {
@@ -38,6 +46,7 @@ private:
     int m_temp_cnt = 0;
     void walkFunction(int f);
     void walkStmt(int s);
+    void walkIf(int s);
 
     std::string walkExpr(int e, bool temp_needed, bool value_needed);
     std::string walkUnary(int e, bool temp_needed, bool value_needed);
@@ -51,6 +60,9 @@ private:
 
     const Node& getNode(int i) const;
     void addToBlock(const std::string& stmt);
+    int newBlock();
+    int branch(const std::string& cond, int on_true, int on_false);
+    void sealTo(int target);
     std::string makeTemp();
 };
 
