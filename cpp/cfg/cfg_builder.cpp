@@ -140,9 +140,10 @@ std::string CfgBuilder::walkBinary(int e, bool temp_needed, bool value_needed) {
     const std::string lhs = walkExpr(lhs_i, true, true);
     const std::string rhs = walkExpr(rhs_i, true, true);
     if (lhs.empty() || rhs.empty()) return "";
-    if (!temp_needed) return lhs + " " + op + " " + rhs;
+    const std::string expr = lhs + " " + op + " " + rhs;
+    if (!temp_needed) return expr;
     const std::string t = makeTemp();
-    addToBlock(t + " = " + lhs + " " + op + " " + rhs);
+    addToBlock(t + " = " + expr);
     return t;
 }
 
@@ -150,9 +151,8 @@ void CfgBuilder::walkStmt(int s) {
     const Node& stmt_node = getNode(s);
 
     if (stmt_node.kind == "CompoundStmt") {
-        // le block
-        m_cfg.blocks.push_back(BB{});
-        m_current = m_cfg.blocks.size() - 1;
+        // le compound statement
+        // isn't a new basic block
         for (int child_idx : stmt_node.children) {
             assert(child_idx >= 0 && child_idx < static_cast<int>(m_tree.nodes.size()));
             walkStmt(child_idx);
@@ -193,6 +193,8 @@ void CfgBuilder::walkFunction(int f) {
     // last child of function with body is always a compound statement
     int comp_stmt_idx = func_node.children.back();
     if (getNode(comp_stmt_idx).kind != "CompoundStmt") return;
+    m_cfg.blocks.push_back(BB{});
+    m_current = m_cfg.blocks.size() - 1;
     walkStmt(comp_stmt_idx);
 }
 

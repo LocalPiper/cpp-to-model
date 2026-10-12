@@ -8,6 +8,7 @@ namespace cpp2model {
 
 struct BB {
     std::vector<std::string> statements;
+    int points_to;
 };
 
 
