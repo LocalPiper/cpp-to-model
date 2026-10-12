@@ -206,6 +206,10 @@ void CfgBuilder::walkStmt(int s) {
         walkIf(s);
     } else if (stmt_node.kind == "WhileStmt") {
         walkWhile(s);
+    } else if (stmt_node.kind == "BreakStmt") {
+        walkBreak();
+    } else if (stmt_node.kind == "ContinueStmt") {
+        walkContinue();
     } else if (stmt_node.cat == NodeCategory::Expression) {
         // a standalone expression used as a statement, e.g. "x = 5;", "y++;"
         // its value is discarded; only side effects reach the CFG
@@ -266,6 +270,19 @@ void CfgBuilder::walkWhile(int s) {
     m_continue_targets.pop_back();
 
     m_current = join_bb;
+}
+
+void CfgBuilder::walkBreak() {
+    assert(!m_break_targets.empty());
+    sealTo(m_break_targets.back());
+    m_current = newBlock();
+}
+
+void CfgBuilder::walkContinue() {
+    // should probably return to it once i do for-loop
+    assert(!m_continue_targets.empty());
+    sealTo(m_continue_targets.back());
+    m_current = newBlock();
 }
 
 void CfgBuilder::walkFunction(int f) {
