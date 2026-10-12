@@ -269,9 +269,10 @@ void CfgBuilder::walkWhile(int s) {
     int body_i = while_node.children[2];
 
     bool has_condvar = getNode(condvar_i).kind != "NoConditionVar";
+    bool has_body = getNode(body_i).kind != "NullStmt";
 
     int cond_bb = newBlock();
-    int body_bb = newBlock();
+    int body_bb = has_body ? newBlock() : cond_bb;
     int join_bb = newBlock();
 
     sealTo(cond_bb);
@@ -286,9 +287,11 @@ void CfgBuilder::walkWhile(int s) {
     m_break_targets.push_back(join_bb); // breaks and false branch
     m_continue_targets.push_back(cond_bb); // continues and true branch
     
-    m_current = body_bb;
-    walkStmt(body_i);
-    sealTo(cond_bb); // backedge
+    if (has_body) {
+        m_current = body_bb;
+        walkStmt(body_i);
+        sealTo(cond_bb); // backedge
+    }
 
     m_break_targets.pop_back();
     m_continue_targets.pop_back();
