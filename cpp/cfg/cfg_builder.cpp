@@ -206,6 +206,8 @@ void CfgBuilder::walkStmt(int s) {
         walkIf(s);
     } else if (stmt_node.kind == "WhileStmt") {
         walkWhile(s);
+    } else if (stmt_node.kind == "ForStmt") {
+        walkFor(s);
     } else if (stmt_node.kind == "BreakStmt") {
         walkBreak();
     } else if (stmt_node.kind == "ContinueStmt") {
@@ -234,7 +236,7 @@ void CfgBuilder::walkIf(int s) {
         walkStmt(init_i);
     }
 
-    std::string cond = walkExpr(cond_i, true, true);
+    std::string cond = walkExpr(cond_i);
 
     int then_bb = newBlock();
     int join_bb = newBlock();
@@ -287,6 +289,64 @@ void CfgBuilder::walkWhile(int s) {
     m_current = body_bb;
     walkStmt(body_i);
     sealTo(cond_bb); // backedge
+
+    m_break_targets.pop_back();
+    m_continue_targets.pop_back();
+
+    m_current = join_bb;
+}
+
+void CfgBuilder::walkFor(int s) {
+    const Node& for_node = getNode(s);
+
+    assert(for_node.children.size() == 4);
+
+    int init_i = for_node.children[0];
+    int cond_i = for_node.children[1];
+    int incr_i = for_node.children[2];
+    int body_i = for_node.children[3];
+
+    bool has_init = (getNode(init_i).kind != "EmptyInit");
+    bool has_cond = (getNode(cond_i).kind != "EmptyCond");
+    bool has_incr = (getNode(incr_i).kind != "EmptyInc");
+    bool has_body = (getNode(body_i).kind != "NullStmt");
+
+    if (has_init) {
+        walkStmt(init_i);
+    }
+
+    int cond_bb = newBlock();
+    int incr_bb = has_incr ? newBlock() : cond_bb;
+    int body_bb = has_body ? newBlock() : incr_bb;
+    int join_bb = newBlock();
+    
+    sealTo(cond_bb);
+    m_current = cond_bb;
+    if (has_cond) {
+        std::string c = walkExpr(cond_i);
+        branch(c, body_bb, join_bb);
+    } else {
+        Terminator t{};
+        t.kind = TermKind::Jump;
+        t.target = body_bb;
+        m_cfg.blocks[cond_bb].term = t;
+    }
+
+    m_break_targets.push_back(join_bb);
+    m_continue_targets.push_back(incr_bb);
+    
+    if (has_body) {
+        m_current = body_bb;
+        walkStmt(body_i); 
+    }
+
+    sealTo(incr_bb);
+
+    if (has_incr) {
+        m_current = incr_bb;
+        walkStmt(incr_i);
+        sealTo(cond_bb);
+    }
 
     m_break_targets.pop_back();
     m_continue_targets.pop_back();

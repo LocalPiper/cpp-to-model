@@ -51,6 +51,7 @@ private:
     void walkStmt(int s);
     void walkIf(int s);
     void walkWhile(int s);
+    void walkFor(int s);
     void walkBreak();
     void walkContinue();
     void walkReturn(int s);

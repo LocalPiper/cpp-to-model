@@ -17,6 +17,7 @@ pkgs.mkShell {
     llvm         # llvm-config
     gnumake      # make
     python3
+    lsof
   ];
 
   shellHook = ''
