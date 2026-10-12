@@ -44,9 +44,13 @@ private:
     TreeModel m_tree;
     int m_current = -1;
     int m_temp_cnt = 0;
+    std::vector<int> m_break_targets;
+    std::vector<int> m_continue_targets;
+
     void walkFunction(int f);
     void walkStmt(int s);
     void walkIf(int s);
+    void walkWhile(int s);
 
     std::string walkExpr(int e, bool temp_needed, bool value_needed);
     std::string walkUnary(int e, bool temp_needed, bool value_needed);

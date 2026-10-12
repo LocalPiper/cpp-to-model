@@ -198,6 +198,8 @@ void CfgBuilder::walkStmt(int s) {
         }
     } else if (stmt_node.kind == "IfStmt") {
         walkIf(s);
+    } else if (stmt_node.kind == "WhileStmt") {
+        walkWhile(s);
     } else if (stmt_node.cat == NodeCategory::Expression) {
         // a standalone expression used as a statement, e.g. "x = 5;", "y++;"
         // its value is discarded; only side effects reach the CFG
@@ -234,6 +236,31 @@ void CfgBuilder::walkIf(int s) {
     m_current = join_bb;
 }
 
+void CfgBuilder::walkWhile(int s) {
+    const Node& while_node = getNode(s);
+
+    int cond_bb = newBlock();
+    int body_bb = newBlock();
+    int join_bb = newBlock();
+
+    sealTo(cond_bb);
+
+    m_current = cond_bb;
+    std::string c = walkExpr(while_node.children.front());
+    branch(c, body_bb, join_bb);
+
+    m_break_targets.push_back(join_bb); // breaks and false branch
+    m_continue_targets.push_back(cond_bb); // continues and true branch
+    
+    m_current = body_bb;
+    walkStmt(while_node.children[1]);
+    sealTo(cond_bb); // backedge
+
+    m_break_targets.pop_back();
+    m_continue_targets.pop_back();
+
+    m_current = join_bb;
+}
 
 void CfgBuilder::walkFunction(int f) {
     const Node& func_node = getNode(f);
