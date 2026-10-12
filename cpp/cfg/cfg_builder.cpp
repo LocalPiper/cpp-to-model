@@ -213,8 +213,10 @@ void CfgBuilder::walkIf(int s) {
     std::string cond = walkExpr(if_node.children.front(), true, true);
 
     int then_bb = newBlock();
-    int else_bb = newBlock();
     int join_bb = newBlock();
+
+    bool has_else = (if_node.children.size() > 2);
+    int else_bb = has_else ? newBlock() : join_bb;
 
     branch(cond, then_bb, else_bb);
 
@@ -223,12 +225,11 @@ void CfgBuilder::walkIf(int s) {
     walkStmt(if_node.children[1]);
     sealTo(join_bb);
 
-    m_current = else_bb;
-    if (if_node.children.size() > 2) {
+    if (has_else) {
+        m_current = else_bb;
         walkStmt(if_node.children[2]);
+        sealTo(join_bb);
     }
-    // handles both else block and fallthrough
-    sealTo(join_bb);
 
     m_current = join_bb;
 }
