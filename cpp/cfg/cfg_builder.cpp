@@ -210,6 +210,8 @@ void CfgBuilder::walkStmt(int s) {
         walkBreak();
     } else if (stmt_node.kind == "ContinueStmt") {
         walkContinue();
+    } else if (stmt_node.kind == "ReturnStmt") {
+        walkReturn(s);
     } else if (stmt_node.cat == NodeCategory::Expression) {
         // a standalone expression used as a statement, e.g. "x = 5;", "y++;"
         // its value is discarded; only side effects reach the CFG
@@ -282,6 +284,18 @@ void CfgBuilder::walkContinue() {
     // should probably return to it once i do for-loop
     assert(!m_continue_targets.empty());
     sealTo(m_continue_targets.back());
+    m_current = newBlock();
+}
+
+void CfgBuilder::walkReturn(int s) {
+    const Node& return_stmt = getNode(s);
+    Terminator t{};
+    t.kind = TermKind::Return;
+    if (!return_stmt.children.empty()) {
+        // from what i remember return stmt has no more than 1 child
+        t.ret_val = walkExpr(return_stmt.children.front());
+    }
+    m_cfg.blocks[m_current].term = t;
     m_current = newBlock();
 }
 

@@ -53,6 +53,7 @@ private:
     void walkWhile(int s);
     void walkBreak();
     void walkContinue();
+    void walkReturn(int s);
 
     std::string walkExpr(int e, bool temp_needed, bool value_needed);
     std::string walkUnary(int e, bool temp_needed, bool value_needed);
