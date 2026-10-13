@@ -220,6 +220,12 @@ void CfgBuilder::walkStmt(int s) {
         walkGoto(s);
     } else if (stmt_node.kind == "LabelStmt") {
         walkLabel(s);
+    } else if (stmt_node.kind == "SwitchStmt") {
+        walkSwitch(s);
+    } else if (stmt_node.kind == "CaseStmt") {
+        walkCase(s);
+    } else if (stmt_node.kind == "DefaultStmt") {
+        walkDefault(s);
     } else if (stmt_node.cat == NodeCategory::Expression) {
         // a standalone expression used as a statement, e.g. "x = 5;", "y++;"
         // its value is discarded; only side effects reach the CFG
@@ -440,6 +446,96 @@ void CfgBuilder::walkGoto(int s) {
     m_cfg.blocks[m_current].term = t;
     m_pending_gotos.push_back({m_current, goto_node.detail});
     m_current = newBlock();
+}
+
+void CfgBuilder::walkSwitch(int s) {
+    const Node& sw_node = getNode(s);
+    assert(sw_node.children.size() == 3);
+
+    int init_i = sw_node.children[0];
+    int cond_i = sw_node.children[1];
+    int body_i = sw_node.children[2];
+
+    bool has_init = getNode(init_i).kind != "EmptyInit";
+
+    if (has_init) {
+        walkStmt(init_i);
+    }
+
+    const std::string val = walkExpr(cond_i);
+
+    int switch_bb = m_current;
+
+    Terminator t{};
+    t.kind = TermKind::Switch;
+    t.switch_val = val;
+    t.default_target = -1;
+    m_cfg.blocks[switch_bb].term = t;
+
+    int join_bb = newBlock();
+
+    m_current = newBlock();
+
+    m_break_targets.push_back(join_bb);
+    m_switch_targets.push_back(switch_bb);
+
+    walkStmt(body_i);
+
+    m_switch_targets.pop_back();
+    m_break_targets.pop_back();
+
+    Terminator& final_term = m_cfg.blocks[switch_bb].term;
+    if (final_term.default_target < 0) {
+        final_term.default_target = join_bb;
+    }
+
+    m_current = join_bb;
+}
+
+void CfgBuilder::walkCase(int s) {
+    const Node& case_node = getNode(s);
+
+    assert(!m_switch_targets.empty());
+    int switch_bb = m_switch_targets.back();
+
+    BB& cur = m_cfg.blocks[m_current];
+    if (!cur.statements.empty() || cur.term.kind != TermKind::Fallthrough) {
+        int case_bb = newBlock();
+        sealTo(case_bb);
+        m_current = case_bb;
+    }
+
+    long long value = 0;
+    bool parsed = false;
+    if (!case_node.detail.empty() && case_node.detail != "?") {
+        char* end = nullptr;
+        value = std::strtoll(case_node.detail.c_str(), &end, 10);
+        parsed = (end != case_node.detail.c_str()) && (*end == '\0');
+    }
+
+    if (parsed) {
+        m_cfg.blocks[switch_bb].term.cases.push_back({value, m_current});
+    }
+
+    for (int child_idx : case_node.children) walkStmt(child_idx);
+}
+
+void CfgBuilder::walkDefault(int s) {
+    const Node& default_node = getNode(s);
+
+    assert(!m_switch_targets.empty());
+    int switch_bb = m_switch_targets.back();
+
+    BB& cur = m_cfg.blocks[m_current];
+    if (!cur.statements.empty() || cur.term.kind != TermKind::Fallthrough) {
+        int default_bb = newBlock();
+        sealTo(default_bb);
+        m_current = default_bb;
+    }
+
+    m_cfg.blocks[switch_bb].term.default_target = m_current;
+
+    for (int child_idx : default_node.children) walkStmt(child_idx);
 }
 
 void CfgBuilder::patchGotos() {

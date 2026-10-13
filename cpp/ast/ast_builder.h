@@ -27,6 +27,7 @@ public:
 private:
     TreeModel m_tree;
     clang::SourceManager* m_sm = nullptr;
+    clang::ASTContext* m_ctx = nullptr;
     int m_current = 0;
     int m_depth = 0;
 

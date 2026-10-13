@@ -84,6 +84,7 @@ AstBuilder::AstBuilder() {
 
 void AstBuilder::build(clang::ASTContext& ctx) {
     m_sm = &ctx.getSourceManager();
+    m_ctx = &ctx;
     for (auto* d : ctx.getTranslationUnitDecl()->decls()) walkDecl(d);
 }
 
@@ -202,6 +203,19 @@ std::string AstBuilder::stmt_detail(clang::Stmt* s) const {
         return name_of(gs->getLabel());
     if (auto* ls = clang::dyn_cast<clang::LabelStmt>(s))
         return name_of(ls->getDecl());
+    if (auto* cs = clang::dyn_cast<clang::CaseStmt>(s)) {
+        if (m_ctx) {
+            clang::Expr::EvalResult result;
+            if (cs->getLHS()->EvaluateAsInt(result, *m_ctx)) {
+                llvm::APSInt v = result.Val.getInt();
+                llvm::SmallString<32> buf;
+                v.toString(buf, 10, v.isSigned());
+                return buf.str().str();
+            }
+        }
+        return "?"; // usually unreachable, but i can't throw here, and assert(false) is not good style
+    }
+    if (clang::isa<clang::DefaultStmt>(s)) return "default";
     if (auto* sz = clang::dyn_cast<clang::UnaryExprOrTypeTraitExpr>(s))
         return trait_name(sz->getKind());
     if (auto* ds = clang::dyn_cast<clang::DeclStmt>(s)) {

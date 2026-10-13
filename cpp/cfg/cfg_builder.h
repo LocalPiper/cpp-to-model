@@ -46,6 +46,7 @@ private:
     int m_temp_cnt = 0;
     std::vector<int> m_break_targets;
     std::vector<int> m_continue_targets;
+    std::vector<int> m_switch_targets;
     
     std::unordered_map<std::string, int> m_label_block;
     struct PendingGoto { int block; std::string label; };
@@ -62,6 +63,9 @@ private:
     void walkReturn(int s);
     void walkLabel(int s);
     void walkGoto(int s);
+    void walkSwitch(int s);
+    void walkCase(int s);
+    void walkDefault(int s);
     void patchGotos();
 
     std::string walkExpr(int e, bool temp_needed, bool value_needed);
