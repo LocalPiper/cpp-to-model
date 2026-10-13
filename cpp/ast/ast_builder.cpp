@@ -260,6 +260,23 @@ void AstBuilder::walk_placeholder_or(clang::Stmt* s, const char* kind) {
     add(NodeCategory::Statement, kind, "", "", "");
 }
 
+void AstBuilder::walk_range_decl(clang::DeclStmt* ds) {
+    if (!ds) return;
+    for (auto* d : ds->decls()) {
+        auto* vd = clang::dyn_cast<clang::VarDecl>(d);
+        if (!vd) continue;
+
+        int parent = m_current;
+        int idx = add(NodeCategory::Declaration, "Var", name_of(vd), decl_type(vd), range_str(m_sm, vd->getSourceRange()));
+        m_current = idx;
+        ++m_depth;
+        if (vd->hasInit()) walkStmt(vd->getInit());
+        --m_depth;
+        m_current = parent;
+    }
+}
+
+
 void AstBuilder::walkDecl(clang::Decl* d) {
     if (!d) return;
     if (d->isImplicit()) return;
@@ -330,6 +347,14 @@ void AstBuilder::walkStmt(clang::Stmt* s) {
         walk_placeholder_or(ss->getInit(), "EmptyInit");
         walkStmt(ss->getCond());
         walkStmt(ss->getBody());
+    } else if (auto* frs = clang::dyn_cast<clang::CXXForRangeStmt>(s)) {
+        walk_range_decl(frs->getRangeStmt());
+        walk_range_decl(frs->getBeginStmt());
+        walk_range_decl(frs->getEndStmt());
+        walkStmt(frs->getCond());
+        walkStmt(frs->getInc());
+        walk_range_decl(frs->getLoopVarStmt());
+        walkStmt(frs->getBody());
     } else {
         for (auto* child : s->children()) walkStmt(child);
     }

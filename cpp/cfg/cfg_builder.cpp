@@ -190,24 +190,15 @@ void CfgBuilder::walkStmt(int s) {
             walkStmt(child_idx);
         }
     } else if (stmt_node.kind == "DeclStmt") {
-        // declaration statement; each child is a var declaration
-        // e.g. "int x = 1;" or "int x = 1, y = x + 1, z;"
-        for (int child_idx : stmt_node.children) {
-            const Node& var_node = getNode(child_idx);
-            if (var_node.kind != "Var") continue;
-            // declaration without an initializer has no appearance in the CFG
-            if (var_node.children.empty()) continue;
-            const std::string lhs = var_node.detail;
-            const std::string rhs = walkExpr(var_node.children.front(), false, true);
-            if (lhs.empty() || rhs.empty()) continue;
-            addToBlock(lhs + " = " + rhs);
-        }
+        for (int child_idx : stmt_node.children) walkStmt(child_idx);
     } else if (stmt_node.kind == "IfStmt") {
         walkIf(s);
     } else if (stmt_node.kind == "WhileStmt") {
         walkWhile(s);
     } else if (stmt_node.kind == "ForStmt") {
         walkFor(s);
+    } else if (stmt_node.kind == "CXXForRangeStmt") {
+        walkForEach(s);
     } else if (stmt_node.kind == "DoStmt") {
         walkDoWhile(s);
     } else if (stmt_node.kind == "BreakStmt") {
@@ -226,6 +217,14 @@ void CfgBuilder::walkStmt(int s) {
         walkCase(s);
     } else if (stmt_node.kind == "DefaultStmt") {
         walkDefault(s);
+    } else if (stmt_node.kind == "Var") {
+        if (!stmt_node.children.empty()) {
+            const std::string lhs = stmt_node.detail;
+            const std::string rhs = walkExpr(stmt_node.children.front());
+            if (!lhs.empty() && !rhs.empty()) {
+                addToBlock(lhs + " = " + rhs);
+            }
+        }
     } else if (stmt_node.cat == NodeCategory::Expression) {
         // a standalone expression used as a statement, e.g. "x = 5;", "y++;"
         // its value is discarded; only side effects reach the CFG
@@ -359,9 +358,54 @@ void CfgBuilder::walkFor(int s) {
 
     if (has_incr) {
         m_current = incr_bb;
-        walkStmt(incr_i);
+        walkExpr(incr_i);
         sealTo(cond_bb);
     }
+
+    m_break_targets.pop_back();
+    m_continue_targets.pop_back();
+
+    m_current = join_bb;
+}
+
+void CfgBuilder::walkForEach(int s) {
+    const Node& foreach_node = getNode(s);
+
+    assert(foreach_node.children.size() == 7); // wow that's a lot
+
+    int range_i = foreach_node.children[0];
+    int begin_i = foreach_node.children[1];
+    int end_i   = foreach_node.children[2];
+    int cond_i  = foreach_node.children[3];
+    int incr_i  = foreach_node.children[4];
+    int var_i   = foreach_node.children[5];
+    int body_i  = foreach_node.children[6];
+
+    walkStmt(range_i);
+    walkStmt(begin_i);
+    walkStmt(end_i);
+
+    int cond_bb = newBlock();
+    int body_bb = newBlock();
+    int incr_bb = newBlock();
+    int join_bb = newBlock();
+
+    sealTo(cond_bb);
+    m_current = cond_bb;
+    std::string c = walkExpr(cond_i);
+    branch(c, body_bb, join_bb);
+
+    m_break_targets.push_back(join_bb);
+    m_continue_targets.push_back(incr_bb);
+
+    m_current = body_bb;
+    walkStmt(var_i);
+    walkStmt(body_i);
+
+    sealTo(incr_bb);
+    m_current = incr_bb;
+    walkExpr(incr_i, false, false);
+    sealTo(cond_bb);
 
     m_break_targets.pop_back();
     m_continue_targets.pop_back();

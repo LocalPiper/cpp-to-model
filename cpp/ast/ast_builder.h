@@ -11,6 +11,7 @@ class ASTContext;
 class Decl;
 class SourceManager;
 class Stmt;
+class DeclStmt;
 }  // namespace clang
 
 namespace cpp2model {
@@ -42,6 +43,7 @@ private:
     std::string stmt_type(clang::Stmt* s) const;
     bool is_transparent(clang::Stmt* s) const;
     void walk_placeholder_or(clang::Stmt* s, const char* kind);
+    void walk_range_decl(clang::DeclStmt* ds);
 
     void walkDecl(clang::Decl* d);
     void walkStmt(clang::Stmt* s);
