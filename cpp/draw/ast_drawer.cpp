@@ -1,13 +1,14 @@
 #include "ast_drawer.h"
-#include "ast_layout.h"
-#include "ast_painter.h"
+#include "dotgen.h"
+#include "dot_runner.h"
 
 namespace cpp2model {
 
 std::string AstDrawer::render(const TreeModel& tree) const {
     if (tree.nodes.empty()) return "";
-    const AstLayout layout = layout_ast(tree);
-    return paint_ast_svg(tree, layout);
+    std::string err;
+    std::string svg = dot_to_svg(ast_to_dot(tree), err);
+    return svg.empty() ? ("<!-- dot error: " + err + " -->") : svg;
 }
 
 }  // namespace cpp2model

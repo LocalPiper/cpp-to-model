@@ -76,12 +76,9 @@ SRC = cpp/main.cpp \
       cpp/cfg/cfg_builder.cpp \
       cpp/cfg/cfg_out.cpp \
       cpp/draw/ast_drawer.cpp \
-      cpp/draw/ast_layout.cpp \
-      cpp/draw/ast_painter.cpp \
       cpp/draw/cfg_drawer.cpp \
-      cpp/draw/cfg_layout.cpp \
-      cpp/draw/cfg_router.cpp \
-      cpp/draw/cfg_painter.cpp
+      cpp/draw/dot_runner.cpp \
+      cpp/draw/dotgen.cpp
 OBJ = $(SRC:.cpp=.o)
 
 # Generate per-object dependency files (-MMD) so header changes rebuild.
