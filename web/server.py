@@ -134,6 +134,16 @@ class RequestHandler(http.server.SimpleHTTPRequestHandler):
             self.wfile.write(html.encode("utf-8"))
             return
 
+        if parsed.path in ("/styles.css", "/app.js"):
+            file_path = SCRIPT_DIR / parsed.path.lstrip("/")
+            if file_path.exists():
+                ctype = "text/css" if file_path.suffix == ".css" else "application/javascript"
+                self.send_response(200)
+                self.send_header("Content-type", ctype)
+                self.end_headers()
+                self.wfile.write(file_path.read_bytes())
+                return
+
         if parsed.path == "/samples":
             try:
                 self._send_json(200, {"samples": list_samples()})
