@@ -2,7 +2,7 @@
 #include "../model.h"
 #include <vector>
 #include <string>
-#include <variant>
+#include <unordered_map>
 
 namespace cpp2model {
 enum class TermKind {Fallthrough, Jump, Branch, Switch, Return };
@@ -46,6 +46,10 @@ private:
     int m_temp_cnt = 0;
     std::vector<int> m_break_targets;
     std::vector<int> m_continue_targets;
+    
+    std::unordered_map<std::string, int> m_label_block;
+    struct PendingGoto { int block; std::string label; };
+    std::vector<PendingGoto> m_pending_gotos;
 
     void walkFunction(int f);
     void walkStmt(int s);
@@ -56,6 +60,9 @@ private:
     void walkBreak();
     void walkContinue();
     void walkReturn(int s);
+    void walkLabel(int s);
+    void walkGoto(int s);
+    void patchGotos();
 
     std::string walkExpr(int e, bool temp_needed, bool value_needed);
     std::string walkUnary(int e, bool temp_needed, bool value_needed);

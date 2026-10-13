@@ -198,6 +198,10 @@ std::string AstBuilder::stmt_detail(clang::Stmt* s) const {
             return std::string("const_cast ") + (cn ? cn : "");
         return cn ? cn : "";
     }
+    if (auto* gs = clang::dyn_cast<clang::GotoStmt>(s))
+        return name_of(gs->getLabel());
+    if (auto* ls = clang::dyn_cast<clang::LabelStmt>(s))
+        return name_of(ls->getDecl());
     if (auto* sz = clang::dyn_cast<clang::UnaryExprOrTypeTraitExpr>(s))
         return trait_name(sz->getKind());
     if (auto* ds = clang::dyn_cast<clang::DeclStmt>(s)) {

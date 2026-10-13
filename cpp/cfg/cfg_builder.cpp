@@ -216,6 +216,10 @@ void CfgBuilder::walkStmt(int s) {
         walkContinue();
     } else if (stmt_node.kind == "ReturnStmt") {
         walkReturn(s);
+    } else if (stmt_node.kind == "GotoStmt") {
+        walkGoto(s);
+    } else if (stmt_node.kind == "LabelStmt") {
+        walkLabel(s);
     } else if (stmt_node.cat == NodeCategory::Expression) {
         // a standalone expression used as a statement, e.g. "x = 5;", "y++;"
         // its value is discarded; only side effects reach the CFG
@@ -410,6 +414,38 @@ void CfgBuilder::walkReturn(int s) {
     m_current = newBlock();
 }
 
+void CfgBuilder::walkLabel(int s) {
+    const Node& label_node = getNode(s);
+    int label_bb = newBlock();
+    sealTo(label_bb);
+    m_current = label_bb;
+    m_label_block[label_node.detail] = label_bb;
+    for (int child_idx : label_node.children) {
+        walkStmt(child_idx);
+    }
+}
+
+void CfgBuilder::walkGoto(int s) {
+    const Node& goto_node = getNode(s);
+    Terminator t{};
+    t.kind = TermKind::Jump;
+    t.target = -1;
+    m_cfg.blocks[m_current].term = t;
+    m_pending_gotos.push_back({m_current, goto_node.detail});
+    m_current = newBlock();
+}
+
+void CfgBuilder::patchGotos() {
+    for (const auto& pg : m_pending_gotos) {
+        auto it = m_label_block.find(pg.label);
+        if (it != m_label_block.end()) {
+            m_cfg.blocks[pg.block].term.target = it->second;
+        }
+    }
+    m_pending_gotos.clear();
+    m_label_block.clear();
+}
+
 void CfgBuilder::walkFunction(int f) {
     const Node& func_node = getNode(f);
 
@@ -428,6 +464,7 @@ void CfgBuilder::walkFunction(int f) {
     m_cfg.blocks.push_back(BB{});
     m_current = m_cfg.blocks.size() - 1;
     walkStmt(comp_stmt_idx);
+    patchGotos();
 }
 
 void CfgBuilder::build(const TreeModel &ast) {
