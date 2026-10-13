@@ -416,10 +416,17 @@ void CfgBuilder::walkReturn(int s) {
 
 void CfgBuilder::walkLabel(int s) {
     const Node& label_node = getNode(s);
-    int label_bb = newBlock();
-    sealTo(label_bb);
-    m_current = label_bb;
-    m_label_block[label_node.detail] = label_bb;
+
+    // if current block empty and unsealed, label adopts it
+    // otherwise new block is created
+    BB& cur = m_cfg.blocks[m_current];
+    if (!cur.statements.empty() || cur.term.kind != TermKind::Fallthrough) {
+        int label_bb = newBlock();
+        sealTo(label_bb);
+        m_current = label_bb;
+    }
+
+    m_label_block[label_node.detail] = m_current;
     for (int child_idx : label_node.children) {
         walkStmt(child_idx);
     }
