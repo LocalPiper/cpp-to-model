@@ -10,10 +10,18 @@ LLVM_CXXFLAGS := $(shell $(LLVM_CONFIG) --cxxflags | sed -E 's/-fno-rtti//g; s/-
 LLVM_LDFLAGS := $(shell $(LLVM_CONFIG) --ldflags --system-libs)
 LLVM_LIBDIR := $(shell $(LLVM_CONFIG) --libdir)
 
-# clang headers live outside the LLVM include dir on some systems (NixOS).
+# Locate clang's own AST headers. Ask clang first (via -print-resource-dir),
+# then fall back to probing well-known locations. CLANG_RESOURCE_DIR may be
+# exported by shell.nix; if so, prefer it.
 CLANG_INCLUDE := $(shell { \
+  for d in "$$CLANG_RESOURCE_DIR/include" \
+           "$$(clang++ -print-resource-dir 2>/dev/null)/include" \
+           "$$($(CXX) -print-resource-dir 2>/dev/null)/include"; do \
+    [ -n "$$d" ] && [ -f "$$d/clang/AST/ASTConsumer.h" ] && { echo "$$d"; exit 0; }; \
+  done; \
   for d in "$(shell $(LLVM_CONFIG) --includedir)" "/usr/include" \
-           "/usr/lib/llvm-$(LLVM_VERSION)/include" /nix/store/*clang-*-dev/include; do \
+           "/usr/lib/llvm-$(LLVM_VERSION)/include" \
+           /nix/store/*clang-*-dev/include; do \
     [ -f "$$d/clang/AST/ASTConsumer.h" ] && { echo "$$d"; break; }; \
   done; } 2>/dev/null)
 
@@ -75,8 +83,11 @@ SRC = cpp/main.cpp \
       cpp/cfg/cfg_utils.cpp \
       cpp/cfg/cfg_builder.cpp \
       cpp/cfg/cfg_out.cpp \
+      cpp/ssa/ssa_builder.cpp \
+      cpp/ssa/ssa_out.cpp \
       cpp/draw/ast_drawer.cpp \
       cpp/draw/cfg_drawer.cpp \
+      cpp/draw/ssa_drawer.cpp \
       cpp/draw/dot_runner.cpp \
       cpp/draw/dotgen.cpp
 OBJ = $(SRC:.cpp=.o)

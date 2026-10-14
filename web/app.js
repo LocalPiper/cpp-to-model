@@ -217,10 +217,10 @@ function render(data) {
 
     // --- View title ---
     viewTitle.textContent =
-        isCfg ? 'CFG picture (basic blocks, hover for details)'
-      : isSsa ? 'SSA picture (placeholder — coming soon)'
-      : isWhy ? 'WHY explanation (text)'
-      :         'AST picture (hover nodes for details)';
+        isCfg ? 'CFG picture'
+      : isSsa ? 'SSA picture'
+      : isWhy ? 'PN for shits and giggles'
+      :         'AST picture';
 
     // --- Status line ---
     if (!data.error) {
@@ -235,6 +235,15 @@ function render(data) {
             }
             st += ' \u00b7 ' + bbs + ' basic block(s)' +
                   (conds ? ', ' + conds + ' condition(s)' : '');
+        }
+        if (isSsa && data.ssa && Array.isArray(data.ssa.blocks)) {
+            let bbs = 0, phis = 0;
+            for (const blk of data.ssa.blocks) {
+                if (blk.kind === 'bb') bbs++;
+                if (Array.isArray(blk.phis)) phis += blk.phis.length;
+            }
+            st += ' \u00b7 ' + bbs + ' basic block(s)' +
+                  (phis ? ', ' + phis + ' phi node(s)' : '');
         }
         statusEl.className = data.errors ? 'err' : 'ok';
         statusEl.textContent = st;

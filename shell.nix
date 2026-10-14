@@ -1,26 +1,27 @@
-# Development shell for the C++ AST processor.
-#
-# Usage:
-#   nix-shell            # enters a shell with all dependencies
-#   make                 # builds web/processor inside the shell
-#
-# Packages needed (also installable imperatively):
-#   nix profile install nixpkgs#clang nixpkgs#llvm nixpkgs#python3
-
 { pkgs ? import <nixpkgs> {} }:
 
+let
+  clangPkg = pkgs.clang;
+in
 pkgs.mkShell {
   name = "cpp-ast-processor";
 
   buildInputs = with pkgs; [
-    clang        # clang++ + LibTooling dev headers + libclang-cpp
-    llvm         # llvm-config
-    gnumake      # make
+    clang
+    clang.cc
+    llvm
+    gnumake
     python3
     lsof
   ];
 
   shellHook = ''
+    export CLANG_RESOURCE_DIR="$(${clangPkg}/bin/clang++ -print-resource-dir 2>/dev/null || true)"
+    if [ -n "$CLANG_RESOURCE_DIR" ] && [ -f "$CLANG_RESOURCE_DIR/include/clang/AST/ASTConsumer.h" ]; then
+      echo "clang resource dir: $CLANG_RESOURCE_DIR"
+    else
+      echo "warning: clang AST headers not found under CLANG_RESOURCE_DIR=$CLANG_RESOURCE_DIR"
+    fi
     echo "C++ AST processor shell ready (clang $(clang++ --version | head -1))"
   '';
 }

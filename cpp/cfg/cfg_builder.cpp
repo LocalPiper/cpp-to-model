@@ -611,6 +611,18 @@ void CfgBuilder::walkFunction(int f) {
     m_cfg.blocks.push_back(BB{});
     m_current = m_cfg.blocks.size() - 1;
     walkStmt(comp_stmt_idx);
+
+    {
+        BB& b = m_cfg.blocks[m_current];
+        if (b.term.kind == TermKind::Fallthrough) {
+            // implicit return
+            // usually happens in main or void functions
+            Terminator t{};
+            t.kind = TermKind::Return;
+            b.term = t;
+        }
+    }
+
     patchGotos();
 }
 

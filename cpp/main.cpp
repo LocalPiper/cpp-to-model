@@ -2,8 +2,11 @@
 #include "ast/clang_session.h"
 #include "cfg/cfg_builder.h"
 #include "cfg/cfg_out.h"
+#include "ssa/ssa_builder.h"
+#include "ssa/ssa_out.h"
 #include "draw/ast_drawer.h"
 #include "draw/cfg_drawer.h"
+#include "draw/ssa_drawer.h"
 #include "facade.h"
 #include "json_out.h"
 #include "text_utils.h"
@@ -56,12 +59,19 @@ int main() {
     CfgBuilder cfg_builder;
     cfg_builder.build(tree);
     const Cfg& cfg = cfg_builder.cfg();
+    
+    SsaBuilder ssa_builder;
+    ssa_builder.build(cfg);
+    const SsaCfg& ssa = ssa_builder.ssa();
 
     AstDrawer drawer;
     std::string svg = drawer.render(tree);
 
     CfgDrawer cfg_drawer;
     std::string cfg_svg = cfg_drawer.render(cfg);
+
+    SsaDrawer ssa_drawer;
+    std::string ssa_svg = ssa_drawer.render(ssa);
 
     std::ostringstream out;
     out << "{\n";
@@ -83,7 +93,11 @@ int main() {
     out << "  \"cfg\": ";
     emit_cfg_json(out, cfg);
     out << ",\n";
-    out << "  \"cfg_svg\": \"" << escape_json(cfg_svg) << "\"\n";
+    out << "  \"cfg_svg\": \"" << escape_json(cfg_svg) << "\",\n";
+    out << "  \"ssa\": ";
+    emit_ssa_json(out, ssa);
+    out << ",\n";
+    out << "  \"ssa_svg\": \"" << escape_json(ssa_svg) << "\"\n";
     out << "}\n";
 
     std::cout << out.str();

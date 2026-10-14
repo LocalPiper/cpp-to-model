@@ -2,6 +2,7 @@
 #include <string>
 #include "../model.h"
 #include "../cfg/cfg_builder.h"
+#include "../ssa/ssa_builder.h"
 
 namespace cpp2model {
 
@@ -24,5 +25,5 @@ CfgEdgeColors cfg_edge_colors(EdgeKind kind, bool is_conditional);
 
 std::string cfg_to_dot(const Cfg& cfg);
 std::string ast_to_dot(const TreeModel& tree);
-
+std::string ssa_to_dot(const SsaCfg& ssa);
 }  // namespace cpp2model

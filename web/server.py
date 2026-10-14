@@ -96,22 +96,44 @@ def build_processor():
 
 
 def process_text(text):
-    """Send C++ source to the C++ processor and return its JSON response."""
     if not PROCESSOR_PATH.exists():
         build_processor()
 
-    result = subprocess.run(
-        [str(PROCESSOR_PATH)],
-        input=text,
-        capture_output=True,
-        text=True,
-        timeout=PROCESS_TIMEOUT
-    )
+    try:
+        result = subprocess.run(
+            [str(PROCESSOR_PATH)],
+            input=text,
+            capture_output=True,
+            text=True,
+            timeout=PROCESS_TIMEOUT
+        )
+    except subprocess.TimeoutExpired as e:
+        raise RuntimeError(
+            f"C++ processor timed out after {PROCESS_TIMEOUT}s. "
+            f"partial stderr: {(e.stderr or '')[:500]}"
+        )
+
+    if result.returncode != 0:
+        raise RuntimeError(
+            f"C++ processor exited with code {result.returncode}. "
+            f"stderr: {result.stderr[:2000] or '(empty)'} "
+            f"stdout head: {result.stdout[:200] or '(empty)'}"
+        )
+
+    if not result.stdout.strip():
+        raise RuntimeError(
+            f"C++ processor produced empty stdout. "
+            f"stderr: {result.stderr[:500] or '(empty)'}"
+        )
+
     try:
         return json.loads(result.stdout)
-    except json.JSONDecodeError:
+    except json.JSONDecodeError as e:
         raise RuntimeError(
-            f"C++ processor returned invalid JSON. stderr: {result.stderr[:500]}"
+            f"C++ processor returned invalid JSON at offset {e.pos}: {e.msg}. "
+            f"stdout head: {result.stdout[:200]!r}, "
+            f"stdout tail: {result.stdout[-200:]!r}, "
+            f"stderr: {result.stderr[:500] or '(empty)'}"
         )
 
 
