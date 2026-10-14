@@ -3,6 +3,6 @@
 
 namespace cpp2model {
 
-std::string dot_to_svg(const std::string &dot_src, std::string &err);
+std::string dotToSvg(const std::string &dot_src, std::string &err);
 
 } // namespace cpp2model

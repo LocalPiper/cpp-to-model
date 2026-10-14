@@ -10,7 +10,7 @@
 namespace cpp2model {
 namespace {
 
-std::string read_all(FILE *f) {
+std::string readAll(FILE *f) {
   std::string out;
   std::array<char, 4096> buf{};
   size_t n;
@@ -21,7 +21,7 @@ std::string read_all(FILE *f) {
 
 } // namespace
 
-std::string dot_to_svg(const std::string &dot_src, std::string &err) {
+std::string dotToSvg(const std::string &dot_src, std::string &err) {
   err.clear();
 
   char tmpl[] = "/tmp/cpp2model_dot_XXXXXX";
@@ -53,7 +53,7 @@ std::string dot_to_svg(const std::string &dot_src, std::string &err) {
     return "";
   }
 
-  std::string output = read_all(p);
+  std::string output = readAll(p);
   int rc = pclose(p);
   unlink(tmpl);
 
