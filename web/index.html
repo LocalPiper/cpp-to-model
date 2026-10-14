@@ -2,7 +2,8 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <title>C++ AST Explorer</title>
+    <title>cpp2model</title>
+    <link rel="icon" type="image/x-icon" href="favicon.ico">
     <link rel="stylesheet" href="styles.css">
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/codemirror@5.65.16/lib/codemirror.min.css">
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/codemirror@5.65.16/theme/material-darker.min.css">
@@ -10,8 +11,7 @@
 </head>
 <body>
     <header>
-        <h1>C++ AST &amp; CFG Explorer</h1>
-        <span class="sub">LibTooling AST / CFG &rarr; JSON + SVG &rarr; browser</span>
+        <h1>cpp2model</h1>
     </header>
 
     <div class="toolbar">
@@ -41,6 +41,8 @@
                 <span class="tabs">
                     <button id="tabAst" class="tab-btn active" type="button">AST</button>
                     <button id="tabCfg" class="tab-btn" type="button">CFG</button>
+                    <button id="tabSsa" class="tab-btn" type="button">SSA</button>
+                    <button id="tabWhy" class="tab-btn" type="button">WHY</button>
                 </span>
                 <span id="viewTitle">AST picture (hover nodes for details)</span>
             </div>

@@ -60,6 +60,7 @@ const editor = CodeMirror.fromTextArea(ta, {
         'Shift-Tab': (cm) => cm.indentSelection('subtract'),
     }
 });
+editor.setSize('100%', '100%');
 
 // fromTextArea initializes with the textarea's value; make sure it's empty.
 editor.setValue('');
@@ -73,14 +74,21 @@ editor.on('change', () => {
 });
 
 // ---- Tab switching ----
+const tabSsa = document.getElementById('tabSsa');
+const tabWhy = document.getElementById('tabWhy');
+
 function setTab(tab) {
     currentTab = tab;
     tabAst.classList.toggle('active', tab === 'ast');
     tabCfg.classList.toggle('active', tab === 'cfg');
+    tabSsa.classList.toggle('active', tab === 'ssa');
+    tabWhy.classList.toggle('active', tab === 'why');
     if (currentData) render(currentData);
 }
 tabAst.addEventListener('click', () => setTab('ast'));
 tabCfg.addEventListener('click', () => setTab('cfg'));
+tabSsa.addEventListener('click', () => setTab('ssa'));
+tabWhy.addEventListener('click', () => setTab('why'));
 
 // ---- Safe placeholders ----
 function setPlaceholder(message) {
@@ -90,6 +98,57 @@ function setPlaceholder(message) {
     div.textContent = message;
     svgBox.appendChild(div);
 }
+
+// ---- Drag-to-pan for the SVG/text viewer ----
+// We pan by mutating scrollLeft/scrollTop, so it works whether or not the
+// content overflows. Wheel-zoom is intentionally not added (out of scope).
+(function installPan() {
+    let panning = false;
+    let startX = 0, startY = 0, startLeft = 0, startTop = 0;
+
+    svgBox.addEventListener('mousedown', (e) => {
+        // Left button only; ignore clicks on interactive elements inside SVG
+        // (hover titles use <title>, which isn't interactive, so this is fine).
+        if (e.button !== 0) return;
+        panning = true;
+        svgBox.classList.add('panning');
+        startX = e.clientX;
+        startY = e.clientY;
+        startLeft = svgBox.scrollLeft;
+        startTop  = svgBox.scrollTop;
+        e.preventDefault();
+    });
+
+    window.addEventListener('mousemove', (e) => {
+        if (!panning) return;
+        svgBox.scrollLeft = startLeft - (e.clientX - startX);
+        svgBox.scrollTop  = startTop  - (e.clientY - startY);
+    });
+
+    window.addEventListener('mouseup', () => {
+        if (!panning) return;
+        panning = false;
+        svgBox.classList.remove('panning');
+    });
+
+    // Touch: same idea, one finger.
+    svgBox.addEventListener('touchstart', (e) => {
+        if (e.touches.length !== 1) return;
+        panning = true;
+        startX = e.touches[0].clientX;
+        startY = e.touches[0].clientY;
+        startLeft = svgBox.scrollLeft;
+        startTop  = svgBox.scrollTop;
+    }, { passive: true });
+
+    svgBox.addEventListener('touchmove', (e) => {
+        if (!panning || e.touches.length !== 1) return;
+        svgBox.scrollLeft = startLeft - (e.touches[0].clientX - startX);
+        svgBox.scrollTop  = startTop  - (e.touches[0].clientY - startY);
+    }, { passive: true });
+
+    svgBox.addEventListener('touchend', () => { panning = false; });
+})();
 
 // ---- JSON fetch helper ----
 async function fetchJson(url, options) {
@@ -124,7 +183,10 @@ async function parse(text) {
 
 function render(data) {
     currentData = data;
-    if (data.error) {
+
+    // The WHY tab is special: it can render even when the C++ processor
+    // returned an error, as long as we have some textual "why" payload.
+    if (data.error && currentTab !== 'why') {
         statusEl.className = 'err';
         statusEl.textContent = 'Error: ' + data.error;
         setPlaceholder(data.error);
@@ -134,28 +196,51 @@ function render(data) {
     }
 
     const isCfg = currentTab === 'cfg';
-    const svg = isCfg ? (data.cfg_svg || '') : (data.svg || '');
-    svgBox.innerHTML = svg;
-    if (!svg) setPlaceholder(isCfg ? 'No CFG picture produced.' : 'No AST picture produced.');
-    viewTitle.textContent = isCfg
-        ? 'CFG picture (basic blocks, hover for details)'
-        : 'AST picture (hover nodes for details)';
+    const isSsa = currentTab === 'ssa';
+    const isWhy = currentTab === 'why';
 
-    let st = '\u2713 ' + data.node_count + ' node(s), ' +
-             data.errors + ' error(s), ' + data.warnings + ' warning(s)';
-    if (data.truncated) st += ' \u00b7 truncated';
-    if (isCfg && data.cfg && Array.isArray(data.cfg.blocks)) {
-        let bbs = 0, conds = 0;
-        for (const blk of data.cfg.blocks) {
-            if (blk.kind === 'bb') bbs++;
-            else if (blk.kind === 'condition') conds++;
+    // --- Pick content ---
+    let svg = '';
+    if (isCfg)      svg = data.cfg_svg || '';
+    else if (isSsa) svg = data.ssa_svg || '';
+    else if (!isWhy) svg = data.svg || '';
+
+    if (isWhy) {
+        renderWhy(data);
+    } else {
+        svgBox.innerHTML = svg;
+        if (!svg) {
+            const label = isCfg ? 'CFG' : isSsa ? 'SSA' : 'AST';
+            setPlaceholder('No ' + label + ' picture produced.');
         }
-        st += ' \u00b7 ' + bbs + ' basic block(s)' +
-              (conds ? ', ' + conds + ' condition(s)' : '');
     }
-    statusEl.className = data.errors ? 'err' : 'ok';
-    statusEl.textContent = st;
 
+    // --- View title ---
+    viewTitle.textContent =
+        isCfg ? 'CFG picture (basic blocks, hover for details)'
+      : isSsa ? 'SSA picture (placeholder — coming soon)'
+      : isWhy ? 'WHY explanation (text)'
+      :         'AST picture (hover nodes for details)';
+
+    // --- Status line ---
+    if (!data.error) {
+        let st = '\u2713 ' + data.node_count + ' node(s), ' +
+                 data.errors + ' error(s), ' + data.warnings + ' warning(s)';
+        if (data.truncated) st += ' \u00b7 truncated';
+        if (isCfg && data.cfg && Array.isArray(data.cfg.blocks)) {
+            let bbs = 0, conds = 0;
+            for (const blk of data.cfg.blocks) {
+                if (blk.kind === 'bb') bbs++;
+                else if (blk.kind === 'condition') conds++;
+            }
+            st += ' \u00b7 ' + bbs + ' basic block(s)' +
+                  (conds ? ', ' + conds + ' condition(s)' : '');
+        }
+        statusEl.className = data.errors ? 'err' : 'ok';
+        statusEl.textContent = st;
+    }
+
+    // --- Diagnostics ---
     if (data.diagnostics && data.diagnostics.length) {
         diagEl.hidden = false;
         diagEl.textContent = data.diagnostics.join('\n');
@@ -163,8 +248,37 @@ function render(data) {
         diagEl.hidden = true;
     }
 
-    jsonSummary.textContent = isCfg ? 'Raw CFG (JSON)' : 'Raw AST (JSON)';
-    jsonBox.textContent = JSON.stringify(isCfg ? data.cfg : data.ast, null, 2);
+    // --- Raw JSON panel ---
+    if (isWhy) {
+        jsonSummary.textContent = 'Raw WHY payload (JSON)';
+        jsonBox.textContent = data.why ? JSON.stringify(data.why, null, 2) : '(no why payload)';
+    } else {
+        jsonSummary.textContent = isCfg ? 'Raw CFG (JSON)'
+                              : isSsa ? 'Raw SSA (JSON)'
+                              :         'Raw AST (JSON)';
+        const payload = isCfg ? data.cfg : isSsa ? data.ssa : data.ast;
+        jsonBox.textContent = JSON.stringify(payload, null, 2);
+    }
+}
+
+function renderWhy(data) {
+    svgBox.innerHTML = '';
+    const pre = document.createElement('div');
+    pre.className = 'why-text';
+    // Accept a few plausible shapes from the server.
+    const why = data.why;
+    let text = '';
+    if (typeof why === 'string') {
+        text = why;
+    } else if (why && typeof why === 'object') {
+        if (typeof why.text === 'string') text = why.text;
+        else text = JSON.stringify(why, null, 2);
+    } else if (Array.isArray(data.why_lines)) {
+        text = data.why_lines.join('\n');
+    }
+    if (!text) text = 'No WHY explanation available for this input.';
+    pre.textContent = text;
+    svgBox.appendChild(pre);
 }
 
 parseBtn.addEventListener('click', () => {

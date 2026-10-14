@@ -134,12 +134,26 @@ class RequestHandler(http.server.SimpleHTTPRequestHandler):
             self.wfile.write(html.encode("utf-8"))
             return
 
-        if parsed.path in ("/styles.css", "/app.js"):
-            file_path = SCRIPT_DIR / parsed.path.lstrip("/")
-            if file_path.exists():
-                ctype = "text/css" if file_path.suffix == ".css" else "application/javascript"
+        # Static assets served straight from SCRIPT_DIR by extension.
+        STATIC_TYPES = {
+            ".css": "text/css",
+            ".js":  "application/javascript",
+            ".ico": "image/x-icon",
+            ".png": "image/png",
+            ".svg": "image/svg+xml",
+            ".gif": "image/gif",
+            ".webp":"image/webp",
+            ".woff":"font/woff",
+            ".woff2":"font/woff2",
+        }
+        suffix = Path(parsed.path).suffix.lower()
+        if suffix in STATIC_TYPES:
+            rel = parsed.path.lstrip("/")
+            file_path = (SCRIPT_DIR / rel).resolve()
+            if SCRIPT_DIR in file_path.parents and file_path.is_file():
                 self.send_response(200)
-                self.send_header("Content-type", ctype)
+                self.send_header("Content-type", STATIC_TYPES[suffix])
+                self.send_header("Content-Length", str(file_path.stat().st_size))
                 self.end_headers()
                 self.wfile.write(file_path.read_bytes())
                 return

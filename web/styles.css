@@ -58,15 +58,29 @@ button.primary:hover {
 #status.err  { color: #b71c1c; }
 #status.busy { color: #666; font-style: italic; }
 
+/* --- Full-height layout chain: html -> body -> .main --- */
+html, body {
+    height: 100%;
+}
+body {
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;    /* the page itself never scrolls; panels do */
+}
+
 .main {
     display: flex;
     gap: 16px;
     padding: 16px 24px;
+    box-sizing: border-box;
+    flex: 1 1 auto;      /* take all remaining vertical space */
+    min-height: 0;       /* allow shrinking below content size */
     align-items: stretch;
 }
 .panel {
-    flex: 1;
+    flex: 1 1 50%;
     min-width: 0;
+    min-height: 0;
     display: flex;
     flex-direction: column;
 }
@@ -78,6 +92,7 @@ button.primary:hover {
     display: flex;
     align-items: center;
     gap: 12px;
+    flex: 0 0 auto;
 }
 .tabs {
     display: inline-flex;
@@ -94,7 +109,9 @@ button.primary:hover {
     background: #fff;
     color: #444;
     cursor: pointer;
+    border-right: 1px solid #e2e2e2;
 }
+.tab-btn:last-child { border-right: none; }
 .tab-btn:hover { background: #f0f0f0; }
 .tab-btn.active { background: #1a1a2e; color: #fff; }
 #viewTitle {
@@ -103,41 +120,90 @@ button.primary:hover {
     font-size: 12px;
 }
 
-/* --- CodeMirror sizing --- */
+/* --- CodeMirror sizing: fills its panel. --- */
 .editor-wrap {
-    flex: 1;
-    min-height: 560px;
-    resize: vertical;
+    flex: 1 1 auto;
+    min-height: 0;
     overflow: hidden;
     border-radius: 6px;
     border: 1px solid #ccc;
     background: #fff;
+    position: relative;
 }
 .CodeMirror {
-    height: 100%;
+    height: 100% !important;
     font-family: ui-monospace, Menlo, Consolas, monospace;
     font-size: 13px;
     line-height: 1.5;
     tab-size: 4;
 }
 
+/* --- SVG / text viewer ---
+   IMPORTANT: do NOT use flex centering here. When an <svg> is wider than the
+   box, flex `justify-content: center` pushes the left edge into negative
+   scroll offset that scrollbars cannot reach. Instead:
+     - the box is a plain block with overflow:auto,
+     - the SVG is centered horizontally with `margin: 0 auto` (block layout,
+       which correctly clamps to [0, max] and never goes negative),
+     - vertical centering is dropped (top-aligned is fine and predictable).  */
 #svgBox {
-    flex: 1;
-    min-height: 560px;
-    max-height: 760px;
+    flex: 1 1 auto;
+    min-height: 0;
     overflow: auto;
     background: #fff;
     border: 1px solid #ccc;
     border-radius: 6px;
     padding: 8px;
     box-sizing: border-box;
+    cursor: grab;
+    user-select: none;
+    /* Fill width so margin:auto centering has a containing block to work in. */
+    display: block;
 }
-#svgBox svg { display: block; }
+#svgBox.panning { cursor: grabbing; }
+
+#svgBox > svg {
+    display: block;
+    margin: 0 auto;       /* horizontal centering that respects overflow */
+}
+#svgBox > .why-text {
+    display: block;
+    margin: 0 auto;
+    max-width: 100%;
+}
+
+.why-text {
+    font-family: ui-monospace, Menlo, Consolas, monospace;
+    font-size: 12.5px;
+    line-height: 1.55;
+    white-space: pre-wrap;
+    color: #222;
+    padding: 8px 12px;
+}
+
 .placeholder {
     color: #999;
     font-style: italic;
     padding: 20px;
 }
+
+.why-text {
+    font-family: ui-monospace, Menlo, Consolas, monospace;
+    font-size: 12.5px;
+    line-height: 1.55;
+    white-space: pre-wrap;
+    color: #222;
+    padding: 8px 12px;
+    max-width: 100%;
+}
+
+.placeholder {
+    color: #999;
+    font-style: italic;
+    padding: 20px;
+    margin: auto;
+}
+
 #diagnostics {
     margin-top: 10px;
     background: #fdecea;
@@ -150,8 +216,9 @@ button.primary:hover {
     white-space: pre-wrap;
     max-height: 160px;
     overflow: auto;
+    flex: 0 0 auto;
 }
-details { margin-top: 10px; }
+details { margin-top: 10px; flex: 0 0 auto; }
 summary {
     cursor: pointer;
     font-size: 13px;
@@ -170,7 +237,10 @@ summary {
     overflow: auto;
 }
 @media (max-width: 900px) {
-    .main { flex-direction: column; }
+    body { overflow: auto; }
+    .main { flex-direction: column; flex: 1 1 auto; }
+    .editor-wrap, #svgBox { min-height: 400px; }
+    .panel { flex: 1 1 auto; }
 }
 
 /* ---- Sample menu + save modal ---- */
