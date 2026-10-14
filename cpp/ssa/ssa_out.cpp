@@ -35,7 +35,7 @@ void emitPhi(std::ostream &os, const PhiNode &phi) {
     if (i)
       os << ",";
     os << "{\"value\":\"" << escapeJson(phi.incoming[i].value) << "\""
-       << ",\"pred\":" << phi.incoming[i].pred_block << "}";
+       << ",\"pred\":" << phi.incoming[i].predBlock << "}";
   }
   os << "]}";
 }
@@ -43,7 +43,7 @@ void emitPhi(std::ostream &os, const PhiNode &phi) {
 } // namespace
 
 void emitSsaJson(std::ostream &os, const SsaCfg &cfg) {
-  os << "{\"func_decl\":\"" << escapeJson(cfg.func_decl) << "\",\"blocks\":[";
+  os << "{\"func_decl\":\"" << escapeJson(cfg.funcDecl) << "\",\"blocks\":[";
   for (size_t i = 0; i < cfg.blocks.size(); ++i) {
     if (i)
       os << ",";
@@ -51,8 +51,8 @@ void emitSsaJson(std::ostream &os, const SsaCfg &cfg) {
 
     os << "{\"kind\":\"bb\",\"index\":" << i;
 
-    if (i < cfg.rpo_num.size())
-      os << ",\"rpo_num\":" << cfg.rpo_num[i];
+    if (i < cfg.rpoNum.size())
+      os << ",\"rpo_num\":" << cfg.rpoNum[i];
     if (i < cfg.idom.size())
       os << ",\"idom\":" << cfg.idom[i];
 

@@ -57,7 +57,7 @@ std::string ssaToDot(const SsaCfg &ssa) {
 
   {
     const std::string label =
-        ssa.func_decl.empty() ? "(no function)" : ssa.func_decl;
+        ssa.funcDecl.empty() ? "(no function)" : ssa.funcDecl;
     s << "  func [label=\"" << dotEscape(label)
       << "\", shape=box, "
          "style=\"rounded,filled\", fillcolor=\"#e3f2fd\", "

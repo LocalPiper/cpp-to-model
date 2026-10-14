@@ -26,7 +26,7 @@ std::string ssaPhiText(const PhiNode &p) {
     if (i)
       out += ", ";
     out += p.incoming[i].value;
-    out += " [BB" + std::to_string(p.incoming[i].pred_block) + "]";
+    out += " [BB" + std::to_string(p.incoming[i].predBlock) + "]";
   }
   out += ")";
   return out;

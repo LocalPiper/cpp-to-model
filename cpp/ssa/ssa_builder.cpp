@@ -10,7 +10,7 @@ namespace cpp2model {
 
 namespace {
 
-std::vector<std::string> split_ws(const std::string &s) {
+std::vector<std::string> splitWs(const std::string &s) {
   std::vector<std::string> out;
   std::string cur;
   for (char c : s) {
@@ -30,11 +30,11 @@ std::vector<std::string> split_ws(const std::string &s) {
 
 } // namespace
 
-bool SsaBuilder::is_temp(const std::string &name) {
+bool SsaBuilder::isTemp(const std::string &name) {
   return name.size() >= 6 && name.compare(0, 6, "__temp") == 0;
 }
 
-bool SsaBuilder::is_name_token(const std::string &tok) {
+bool SsaBuilder::isNameToken(const std::string &tok) {
   if (tok.empty())
     return false;
   unsigned char c0 = static_cast<unsigned char>(tok[0]);
@@ -48,16 +48,16 @@ bool SsaBuilder::is_name_token(const std::string &tok) {
   return true;
 }
 
-bool SsaBuilder::is_unary_op(const std::string &tok) {
+bool SsaBuilder::isUnaryOp(const std::string &tok) {
   return tok == "!" || tok == "~" || tok == "-" || tok == "+" || tok == "*" ||
          tok == "&";
 }
 
-bool SsaBuilder::is_special_unary(const std::string &tok) {
+bool SsaBuilder::isSpecialUnary(const std::string &tok) {
   return tok == "sizeof" || tok == "alignof";
 }
 
-bool SsaBuilder::is_binary_op(const std::string &tok) {
+bool SsaBuilder::isBinaryOp(const std::string &tok) {
   static const char *const kOps[] = {
       "+", "-", "*", "/",  "%",  "<<", ">>", "&",  "|",
       "^", "<", ">", "<=", ">=", "==", "!=", "&&", "||",
@@ -68,25 +68,25 @@ bool SsaBuilder::is_binary_op(const std::string &tok) {
   return false;
 }
 
-bool SsaBuilder::is_ssa_renameable(const std::string &name) {
-  return m_defined_names.count(name) > 0;
+bool SsaBuilder::isSsaRenameable(const std::string &name) {
+  return DefinedNames.count(name) > 0;
 }
 
 int SsaBuilder::intersect(int a, int b) {
   while (a != b) {
-    while (m_rpo_num[a] > m_rpo_num[b])
-      a = m_idom[a];
-    while (m_rpo_num[b] > m_rpo_num[a])
-      b = m_idom[b];
+    while (RpoNum[a] > RpoNum[b])
+      a = Idoms[a];
+    while (RpoNum[b] > RpoNum[a])
+      b = Idoms[b];
   }
   return a;
 }
 
 void SsaBuilder::computeRpo() {
-  const int n = static_cast<int>(m_ssa.blocks.size());
-  m_rpo.clear();
-  m_rpo.reserve(n);
-  m_rpo_num.assign(n, -1);
+  const int n = static_cast<int>(Ssa.blocks.size());
+  Rpo.clear();
+  Rpo.reserve(n);
+  RpoNum.assign(n, -1);
 
   std::vector<bool> visited(n);
 
@@ -99,47 +99,46 @@ void SsaBuilder::computeRpo() {
 
   while (!worklist.empty()) {
     auto &[b, idx] = worklist.back();
-    if (idx < m_ssa.blocks[b].succs.size()) {
-      int s = m_ssa.blocks[b].succs[idx++];
+    if (idx < Ssa.blocks[b].succs.size()) {
+      int s = Ssa.blocks[b].succs[idx++];
       if (!visited[s]) {
         visited[s] = true;
         worklist.push_back({s, 0});
       }
     } else {
-      m_rpo.push_back(b);
+      Rpo.push_back(b);
       worklist.pop_back();
     }
   }
 
-  std::reverse(m_rpo.begin(), m_rpo.end());
-  for (int i = 0; i < static_cast<int>(m_rpo.size()); ++i) {
-    m_rpo_num[m_rpo[i]] = i;
-  }
+  std::reverse(Rpo.begin(), Rpo.end());
+  for (int i = 0; i < static_cast<int>(Rpo.size()); ++i)
+    RpoNum[Rpo[i]] = i;
 }
 
 void SsaBuilder::computeDominators() {
-  const int n = static_cast<int>(m_ssa.blocks.size());
-  m_idom.assign(n, -1);
+  const int n = static_cast<int>(Ssa.blocks.size());
+  Idoms.assign(n, -1);
 
   if (n == 0)
     return;
-  m_idom[0] = 0;
+  Idoms[0] = 0;
 
   bool changed = true;
   while (changed) {
     changed = false;
-    for (int i = 1; i < static_cast<int>(m_rpo.size()); ++i) {
-      const int b = m_rpo[i];
-      int new_idom = -1;
-      for (int p : m_ssa.blocks[b].preds) {
-        if (m_rpo_num[p] == -1)
-          continue; // unreachable block
-        if (m_idom[p] == -1)
-          continue; // pred's idom not set
-        new_idom = new_idom == -1 ? p : intersect(p, new_idom);
+    for (int i = 1; i < static_cast<int>(Rpo.size()); ++i) {
+      const int b = Rpo[i];
+      int newIdom = -1;
+      for (int p : Ssa.blocks[b].preds) {
+        if (RpoNum[p] == -1)
+          continue;
+        if (Idoms[p] == -1)
+          continue;
+        newIdom = newIdom == -1 ? p : intersect(p, newIdom);
       }
-      if (new_idom != -1 && new_idom != m_idom[b]) {
-        m_idom[b] = new_idom;
+      if (newIdom != -1 && newIdom != Idoms[b]) {
+        Idoms[b] = newIdom;
         changed = true;
       }
     }
@@ -147,30 +146,29 @@ void SsaBuilder::computeDominators() {
 }
 
 void SsaBuilder::computeDominanceFrontiers() {
-  const int n = static_cast<int>(m_ssa.blocks.size());
-  m_df.assign(n, {});
+  const int n = static_cast<int>(Ssa.blocks.size());
+  Df.assign(n, {});
 
   for (int b = 0; b < n; ++b) {
-    if (m_rpo_num[b] == -1)
+    if (RpoNum[b] == -1)
       continue;
-    if (m_idom[b] == -1)
+    if (Idoms[b] == -1)
       continue;
-    if (m_ssa.blocks[b].preds.size() < 2)
+    if (Ssa.blocks[b].preds.size() < 2)
       continue;
 
-    const int stop = m_idom[b];
-    for (int p : m_ssa.blocks[b].preds) {
-      if (m_rpo_num[p] == -1)
+    const int stop = Idoms[b];
+    for (int p : Ssa.blocks[b].preds) {
+      if (RpoNum[p] == -1)
         continue;
       int runner = p;
       while (runner != stop) {
         if (runner < 0 || runner >= n)
           break;
-        auto &vec = m_df[runner];
-        if (std::find(vec.begin(), vec.end(), b) == vec.end()) {
+        auto &vec = Df[runner];
+        if (std::find(vec.begin(), vec.end(), b) == vec.end())
           vec.push_back(b);
-        }
-        int next = m_idom[runner];
+        int next = Idoms[runner];
         if (next == -1)
           break;
         runner = next;
@@ -180,33 +178,31 @@ void SsaBuilder::computeDominanceFrontiers() {
 }
 
 void SsaBuilder::placePhis() {
-  const int n = static_cast<int>(m_ssa.blocks.size());
+  const int n = static_cast<int>(Ssa.blocks.size());
 
-  std::unordered_map<std::string, std::vector<int>> def_blocks;
+  std::unordered_map<std::string, std::vector<int>> defBlocks;
 
   for (int b = 0; b < n; ++b) {
-    if (m_rpo_num[b] == -1)
+    if (RpoNum[b] == -1)
       continue;
-    for (const TacOp &op : m_ssa.blocks[b].ops) {
+    for (const TacOp &op : Ssa.blocks[b].ops) {
       if (op.dst.empty())
         continue;
-      if (is_temp(op.dst))
+      if (isTemp(op.dst))
         continue;
-      auto &v = def_blocks[op.dst];
-      if (std::find(v.begin(), v.end(), b) == v.end()) {
+      auto &v = defBlocks[op.dst];
+      if (std::find(v.begin(), v.end(), b) == v.end())
         v.push_back(b);
-      }
     }
   }
 
-  for (auto &[var, defs] : def_blocks) {
+  for (auto &[var, defs] : defBlocks) {
     std::vector<int> worklist = defs;
 
-    auto block_has_phi = [&](int b) -> bool {
-      for (const PhiNode &p : m_ssa.blocks[b].phis) {
+    auto blockHasPhi = [&](int b) -> bool {
+      for (const PhiNode &p : Ssa.blocks[b].phis)
         if (p.base == var)
           return true;
-      }
       return false;
     };
 
@@ -216,73 +212,70 @@ void SsaBuilder::placePhis() {
 
       if (b < 0 || b >= n)
         continue;
-      if (m_rpo_num[b] == -1)
+      if (RpoNum[b] == -1)
         continue;
-      if (b >= static_cast<int>(m_df.size()))
+      if (b >= static_cast<int>(Df.size()))
         continue;
 
-      for (int y : m_df[b]) {
+      for (int y : Df[b]) {
         if (y < 0 || y >= n)
           continue;
-        if (m_rpo_num[y] == -1)
+        if (RpoNum[y] == -1)
           continue;
-        if (block_has_phi(y))
+        if (blockHasPhi(y))
           continue;
 
-        m_ssa.blocks[y].phis.push_back(PhiNode{var, var, {}});
+        Ssa.blocks[y].phis.push_back(PhiNode{var, var, {}});
 
-        if (std::find(defs.begin(), defs.end(), y) == defs.end()) {
+        if (std::find(defs.begin(), defs.end(), y) == defs.end())
           worklist.push_back(y);
-        }
       }
     }
   }
 
-  for (auto &bb : m_ssa.blocks) {
+  for (auto &bb : Ssa.blocks)
     std::sort(bb.phis.begin(), bb.phis.end(),
               [](const PhiNode &a, const PhiNode &b) { return a.var < b.var; });
-  }
 }
 
 void SsaBuilder::collectDefinedNames() {
-  m_defined_names.clear();
-  for (const auto &bb : m_ssa.blocks) {
+  DefinedNames.clear();
+  for (const auto &bb : Ssa.blocks) {
     for (const TacOp &op : bb.ops) {
       if (op.dst.empty())
         continue;
-      if (!is_name_token(op.dst))
+      if (!isNameToken(op.dst))
         continue;
-      if (is_temp(op.dst))
+      if (isTemp(op.dst))
         continue;
-      m_defined_names.insert(op.dst);
+      DefinedNames.insert(op.dst);
     }
   }
 }
 
 void SsaBuilder::buildDomChildren() {
-  const int n = static_cast<int>(m_ssa.blocks.size());
-  m_dom_children.assign(n, {});
+  const int n = static_cast<int>(Ssa.blocks.size());
+  DomChildren.assign(n, {});
   for (int b = 1; b < n; ++b) {
-    int d = m_idom[b];
-    if (d >= 0 && d < n) {
-      m_dom_children[d].push_back(b);
-    }
+    int d = Idoms[b];
+    if (d >= 0 && d < n)
+      DomChildren[d].push_back(b);
   }
 }
 
 void SsaBuilder::renameOp(TacOp &op) {
   for (auto &a : op.args)
-    a = rename_use(a);
+    a = renameUse(a);
   if (!op.dst.empty())
-    op.dst = rename_def(op.dst);
+    op.dst = renameDef(op.dst);
 }
 
 void SsaBuilder::renameFragment(std::string &field) {
   if (field.empty())
     return;
-  ExprFragment f = parse_expr_fragment(field);
+  ExprFragment f = parseExprFragment(field);
   for (auto &a : f.args)
-    a = rename_use(a);
+    a = renameUse(a);
   if (f.args.size() == 1) {
     field = f.args[0];
   } else if (f.args.size() == 2) {
@@ -307,13 +300,13 @@ void SsaBuilder::renameTerminator(Terminator &t) {
 }
 
 void SsaBuilder::fillPhiInputs(int b) {
-  for (int s : m_ssa.blocks[b].succs) {
-    if (s < 0 || s >= static_cast<int>(m_ssa.blocks.size()))
+  for (int s : Ssa.blocks[b].succs) {
+    if (s < 0 || s >= static_cast<int>(Ssa.blocks.size()))
       continue;
-    for (PhiNode &phi : m_ssa.blocks[s].phis) {
-      auto it = m_var_stack.find(phi.base);
+    for (PhiNode &phi : Ssa.blocks[s].phis) {
+      auto it = VarStack.find(phi.base);
       std::string val;
-      if (it == m_var_stack.end() || it->second.empty()) {
+      if (it == VarStack.end() || it->second.empty()) {
         val = phi.base + "0";
       } else {
         val = phi.base + std::to_string(it->second.back());
@@ -326,28 +319,26 @@ void SsaBuilder::fillPhiInputs(int b) {
 void SsaBuilder::renameBlock(int b) {
   std::vector<std::pair<std::string, size_t>> saved;
 
-  for (PhiNode &phi : m_ssa.blocks[b].phis) {
-    saved.push_back({phi.base, m_var_stack[phi.base].size()});
-    phi.var = rename_def(phi.base);
+  for (PhiNode &phi : Ssa.blocks[b].phis) {
+    saved.push_back({phi.base, VarStack[phi.base].size()});
+    phi.var = renameDef(phi.base);
   }
 
-  for (TacOp &op : m_ssa.blocks[b].ops) {
-    if (!op.dst.empty() && is_ssa_renameable(op.dst)) {
-      saved.push_back({op.dst, m_var_stack[op.dst].size()});
-    }
+  for (TacOp &op : Ssa.blocks[b].ops) {
+    if (!op.dst.empty() && isSsaRenameable(op.dst))
+      saved.push_back({op.dst, VarStack[op.dst].size()});
     renameOp(op);
   }
 
-  renameTerminator(m_ssa.blocks[b].term);
+  renameTerminator(Ssa.blocks[b].term);
 
   fillPhiInputs(b);
 
-  for (int c : m_dom_children[b]) {
+  for (int c : DomChildren[b])
     renameBlock(c);
-  }
 
   for (auto it = saved.rbegin(); it != saved.rend(); ++it) {
-    auto &stack = m_var_stack[it->first];
+    auto &stack = VarStack[it->first];
     while (stack.size() > it->second)
       stack.pop_back();
   }
@@ -355,45 +346,41 @@ void SsaBuilder::renameBlock(int b) {
 
 void SsaBuilder::rename() {
   buildDomChildren();
-  m_var_stack.clear();
-  m_var_counter.clear();
+  VarStack.clear();
+  VarCounter.clear();
 
-  if (!m_ssa.blocks.empty()) {
+  if (!Ssa.blocks.empty())
     renameBlock(0);
-  }
 
-  for (auto &bb : m_ssa.blocks) {
-    for (auto &phi : bb.phis) {
+  for (auto &bb : Ssa.blocks)
+    for (auto &phi : bb.phis)
       std::sort(phi.incoming.begin(), phi.incoming.end(),
                 [](const PhiInput &a, const PhiInput &b) {
-                  return a.pred_block < b.pred_block;
+                  return a.predBlock < b.predBlock;
                 });
-    }
-  }
 }
 
-std::string SsaBuilder::rename_use(const std::string &name) {
-  if (!is_ssa_renameable(name))
+std::string SsaBuilder::renameUse(const std::string &name) {
+  if (!isSsaRenameable(name))
     return name;
-  auto it = m_var_stack.find(name);
-  if (it == m_var_stack.end() || it->second.empty()) {
+  auto it = VarStack.find(name);
+  if (it == VarStack.end() || it->second.empty())
     return name + "0";
-  }
   return name + std::to_string(it->second.back());
 }
 
-std::string SsaBuilder::rename_def(const std::string &name) {
-  if (!is_ssa_renameable(name))
+std::string SsaBuilder::renameDef(const std::string &name) {
+  if (!isSsaRenameable(name))
     return name;
-  int &next = m_var_counter[name];
+  int &next = VarCounter[name];
   if (next == 0)
     next = 1;
   int v = next++;
-  m_var_stack[name].push_back(v);
+  VarStack[name].push_back(v);
   return name + std::to_string(v);
 }
 
-TacOp SsaBuilder::parse_tac(const std::string &stmt) {
+TacOp SsaBuilder::parseTac(const std::string &stmt) {
   TacOp out;
   const auto eq = stmt.find(" = ");
   assert(eq != std::string::npos && "TAC statement must contain ' = '");
@@ -401,12 +388,11 @@ TacOp SsaBuilder::parse_tac(const std::string &stmt) {
   out.dst = stmt.substr(0, eq);
 
   const std::string rhs = stmt.substr(eq + 3);
-  const std::vector<std::string> toks = split_ws(rhs);
+  const std::vector<std::string> toks = splitWs(rhs);
   assert(!toks.empty() && "TAC RHS must not be empty");
 
   if (toks.size() == 1) {
     const std::string &t = toks[0];
-    // glued unary prefix
     if (t.size() > 1 && (t[0] == '!' || t[0] == '~' || t[0] == '-' ||
                          t[0] == '+' || t[0] == '*' || t[0] == '&')) {
       out.op = std::string(1, t[0]);
@@ -419,7 +405,7 @@ TacOp SsaBuilder::parse_tac(const std::string &stmt) {
   }
 
   if (toks.size() == 2) {
-    assert((is_unary_op(toks[0]) || is_special_unary(toks[0])) &&
+    assert((isUnaryOp(toks[0]) || isSpecialUnary(toks[0])) &&
            "two-token TAC RHS must be a unary operator");
     out.op = toks[0];
     out.args.push_back(toks[1]);
@@ -427,7 +413,7 @@ TacOp SsaBuilder::parse_tac(const std::string &stmt) {
   }
 
   if (toks.size() == 3) {
-    assert((is_binary_op(toks[1]) || toks[1] == "=") &&
+    assert((isBinaryOp(toks[1]) || toks[1] == "=") &&
            "three-token TAC RHS must be binary");
     out.op = toks[1];
     out.args.push_back(toks[0]);
@@ -439,9 +425,9 @@ TacOp SsaBuilder::parse_tac(const std::string &stmt) {
   return out;
 }
 
-ExprFragment SsaBuilder::parse_expr_fragment(const std::string &expr) {
+ExprFragment SsaBuilder::parseExprFragment(const std::string &expr) {
   ExprFragment out;
-  const std::vector<std::string> toks = split_ws(expr);
+  const std::vector<std::string> toks = splitWs(expr);
   assert(!toks.empty() && "terminator expression must not be empty");
 
   if (toks.size() == 1) {
@@ -449,7 +435,7 @@ ExprFragment SsaBuilder::parse_expr_fragment(const std::string &expr) {
     return out;
   }
   if (toks.size() == 3) {
-    assert(is_binary_op(toks[1]) && "fragment middle token must be binary");
+    assert(isBinaryOp(toks[1]) && "fragment middle token must be binary");
     out.op = toks[1];
     out.args.push_back(toks[0]);
     out.args.push_back(toks[2]);
@@ -460,29 +446,29 @@ ExprFragment SsaBuilder::parse_expr_fragment(const std::string &expr) {
 }
 
 void SsaBuilder::computeEdges() {
-  const int n = static_cast<int>(m_ssa.blocks.size());
+  const int n = static_cast<int>(Ssa.blocks.size());
   for (int i = 0; i < n; ++i) {
-    const Terminator &t = m_ssa.blocks[i].term;
-    auto add_edge = [&](int target) {
+    const Terminator &t = Ssa.blocks[i].term;
+    auto addEdge = [&](int target) {
       assert(target >= 0 && target < n && "terminator points out of range");
-      m_ssa.blocks[i].succs.push_back(target);
-      m_ssa.blocks[target].preds.push_back(i);
+      Ssa.blocks[i].succs.push_back(target);
+      Ssa.blocks[target].preds.push_back(i);
     };
     switch (t.Kind) {
     case TermKind::Fallthrough:
       assert(false && "Fallthrough terminator survived into SSA");
       break;
     case TermKind::Jump:
-      add_edge(t.Target);
+      addEdge(t.Target);
       break;
     case TermKind::Branch:
-      add_edge(t.OnTrue);
-      add_edge(t.OnFalse);
+      addEdge(t.OnTrue);
+      addEdge(t.OnFalse);
       break;
     case TermKind::Switch:
       for (const auto &c : t.Cases)
-        add_edge(c.second);
-      add_edge(t.DefaultTarget);
+        addEdge(c.second);
+      addEdge(t.DefaultTarget);
       break;
     case TermKind::Return:
       break;
@@ -491,18 +477,17 @@ void SsaBuilder::computeEdges() {
 }
 
 void SsaBuilder::parseBlocks(const Cfg &cfg) {
-  m_ssa.func_decl = cfg.FuncDecl;
-  m_ssa.blocks.clear();
-  m_ssa.blocks.reserve(cfg.Blocks.size());
+  Ssa.funcDecl = cfg.FuncDecl;
+  Ssa.blocks.clear();
+  Ssa.blocks.reserve(cfg.Blocks.size());
 
   for (const BB &bb : cfg.Blocks) {
     SsaBB out;
     out.term = bb.Term;
     out.ops.reserve(bb.Statements.size());
-    for (const std::string &s : bb.Statements) {
-      out.ops.push_back(parse_tac(s));
-    }
-    m_ssa.blocks.push_back(std::move(out));
+    for (const std::string &s : bb.Statements)
+      out.ops.push_back(parseTac(s));
+    Ssa.blocks.push_back(std::move(out));
   }
 }
 
@@ -515,9 +500,9 @@ void SsaBuilder::build(const Cfg &cfg) {
   placePhis();
   collectDefinedNames();
   rename();
-  m_ssa.rpo_num = m_rpo_num;
-  m_ssa.idom = m_idom;
-  m_ssa.df = m_df;
+  Ssa.rpoNum = RpoNum;
+  Ssa.idom = Idoms;
+  Ssa.df = Df;
 }
 
 } // namespace cpp2model
