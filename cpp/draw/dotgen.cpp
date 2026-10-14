@@ -154,7 +154,7 @@ std::string ssa_tac_text(const TacOp& op) {
 }
 
 std::string ssa_phi_text(const PhiNode& p) {
-    std::string out = p.var + " = phi(";
+    std::string out = p.var + " = φ(";
     for (size_t i = 0; i < p.incoming.size(); ++i) {
         if (i) out += ", ";
         out += p.incoming[i].value;

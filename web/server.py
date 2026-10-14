@@ -7,7 +7,7 @@ from pathlib import Path
 from urllib.parse import urlparse
 
 
-PORT = 8000
+PORT = 8001
 MAX_INPUT_BYTES = 200_000
 PROCESS_TIMEOUT = 60  # seconds (first call also builds the C++ processor)
 

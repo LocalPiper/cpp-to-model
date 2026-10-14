@@ -68,7 +68,9 @@ void emit_tac(std::ostream& os, const TacOp& op) {
 }
 
 void emit_phi(std::ostream& os, const PhiNode& phi) {
-    os << "{\"var\":\"" << escape_json(phi.var) << "\",\"incoming\":[";
+    os << "{\"var\":\"" << escape_json(phi.var) << "\""
+       << ",\"base\":\"" << escape_json(phi.base) << "\""
+       << ",\"incoming\":[";
     for (size_t i = 0; i < phi.incoming.size(); ++i) {
         if (i) os << ",";
         os << "{\"value\":\"" << escape_json(phi.incoming[i].value) << "\""

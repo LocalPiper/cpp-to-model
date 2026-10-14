@@ -61,6 +61,10 @@ bool SsaBuilder::is_binary_op(const std::string& tok) {
     return false;
 }
 
+bool SsaBuilder::is_ssa_renameable(const std::string& name) {
+    return m_defined_names.count(name) > 0;
+}
+
 int SsaBuilder::intersect(int a, int b) {
     while (a != b) {
         while (m_rpo_num[a] > m_rpo_num[b]) a = m_idom[a];
@@ -155,6 +159,193 @@ void SsaBuilder::computeDominanceFrontiers() {
             }
         }
     }
+}
+
+void SsaBuilder::placePhis() {
+    const int n = static_cast<int>(m_ssa.blocks.size());
+
+    std::unordered_map<std::string, std::vector<int>> def_blocks;
+
+    for (int b = 0; b < n; ++b) {
+        if (m_rpo_num[b] == -1) continue;
+        for (const TacOp& op : m_ssa.blocks[b].ops) {
+            if (op.dst.empty()) continue;
+            if (is_temp(op.dst)) continue;
+            auto& v = def_blocks[op.dst];
+            if (std::find(v.begin(), v.end(), b) == v.end()) {
+                v.push_back(b);
+            }
+        }
+    }
+
+    for (auto& [var, defs] : def_blocks) {
+        std::vector<int> worklist = defs;
+
+        auto block_has_phi = [&](int b) -> bool {
+            for (const PhiNode& p : m_ssa.blocks[b].phis) {
+                if (p.base == var) return true;
+            }
+            return false;
+        };
+
+        while (!worklist.empty()) {
+            int b = worklist.back();
+            worklist.pop_back();
+
+            if (b < 0 || b >= n) continue;
+            if (m_rpo_num[b] == -1) continue;
+            if (b >= static_cast<int>(m_df.size())) continue;
+
+            for (int y : m_df[b]) {
+                if (y < 0 || y >= n) continue;
+                if (m_rpo_num[y] == -1) continue;
+                if (block_has_phi(y)) continue;
+
+                m_ssa.blocks[y].phis.push_back(PhiNode{var, var, {}});
+
+                if (std::find(defs.begin(), defs.end(), y) == defs.end()) {
+                    worklist.push_back(y);
+                }
+            }
+        }
+    }
+
+    for (auto& bb : m_ssa.blocks) {
+        std::sort(bb.phis.begin(), bb.phis.end(),
+                  [](const PhiNode& a, const PhiNode& b) {
+                      return a.var < b.var;
+                  });
+    }
+}
+
+void SsaBuilder::collectDefinedNames() {
+    m_defined_names.clear();
+    for (const auto& bb : m_ssa.blocks) {
+        for (const TacOp& op : bb.ops) {
+            if (op.dst.empty()) continue;
+            if (!is_name_token(op.dst)) continue;
+            if (is_temp(op.dst)) continue;
+            m_defined_names.insert(op.dst);
+        }
+    }
+}
+
+void SsaBuilder::buildDomChildren() {
+    const int n = static_cast<int>(m_ssa.blocks.size());
+    m_dom_children.assign(n, {});
+    for (int b = 1; b < n; ++b) {
+        int d = m_idom[b];
+        if (d >= 0 && d < n) {
+            m_dom_children[d].push_back(b);
+        }
+    }
+}
+
+void SsaBuilder::renameOp(TacOp& op) {
+    for (auto& a : op.args) a = rename_use(a);
+    if (!op.dst.empty()) op.dst = rename_def(op.dst);
+}
+
+void SsaBuilder::renameFragment(std::string& field) {
+    if (field.empty()) return;
+    ExprFragment f = parse_expr_fragment(field);
+    for (auto& a : f.args) a = rename_use(a);
+    if (f.args.size() == 1) {
+        field = f.args[0];
+    } else if (f.args.size() == 2) {
+        field = f.args[0] + " " + f.op + " " + f.args[1];
+    }
+}
+
+void SsaBuilder::renameTerminator(Terminator& t) {
+    switch (t.kind) {
+        case TermKind::Branch:  renameFragment(t.cond); break;
+        case TermKind::Switch:  renameFragment(t.switch_val); break;
+        case TermKind::Return:  renameFragment(t.ret_val); break;
+        default: break;
+    }
+}
+
+void SsaBuilder::fillPhiInputs(int b) {
+    for (int s : m_ssa.blocks[b].succs) {
+        if (s < 0 || s >= static_cast<int>(m_ssa.blocks.size())) continue;
+        for (PhiNode& phi : m_ssa.blocks[s].phis) {
+            auto it = m_var_stack.find(phi.base);
+            std::string val;
+            if (it == m_var_stack.end() || it->second.empty()) {
+                val = phi.base + "0";
+            } else {
+                val = phi.base + std::to_string(it->second.back());
+            }
+            phi.incoming.push_back({val, b});
+        }
+    }
+}
+
+void SsaBuilder::renameBlock(int b) {
+    std::vector<std::pair<std::string, size_t>> saved;
+
+    for (PhiNode& phi : m_ssa.blocks[b].phis) {
+        saved.push_back({phi.base, m_var_stack[phi.base].size()});
+        phi.var = rename_def(phi.base);
+    }
+
+    for (TacOp& op : m_ssa.blocks[b].ops) {
+        if (!op.dst.empty() && is_ssa_renameable(op.dst)) {
+            saved.push_back({op.dst, m_var_stack[op.dst].size()});
+        }
+        renameOp(op);
+    }
+
+    renameTerminator(m_ssa.blocks[b].term);
+
+    fillPhiInputs(b);
+
+    for (int c : m_dom_children[b]) {
+        renameBlock(c);
+    }
+
+    for (auto it = saved.rbegin(); it != saved.rend(); ++it) {
+        auto& stack = m_var_stack[it->first];
+        while (stack.size() > it->second) stack.pop_back();
+    }
+}
+
+void SsaBuilder::rename() {
+    buildDomChildren();
+    m_var_stack.clear();
+    m_var_counter.clear();
+
+    if (!m_ssa.blocks.empty()) {
+        renameBlock(0);
+    }
+
+    for (auto& bb : m_ssa.blocks) {
+        for (auto& phi : bb.phis) {
+            std::sort(phi.incoming.begin(), phi.incoming.end(),
+                      [](const PhiInput& a, const PhiInput& b) {
+                          return a.pred_block < b.pred_block;
+                      });
+        }
+    }
+}
+
+std::string SsaBuilder::rename_use(const std::string& name) {
+    if (!is_ssa_renameable(name)) return name;
+    auto it = m_var_stack.find(name);
+    if (it == m_var_stack.end() || it->second.empty()) {
+        return name + "0";
+    }
+    return name + std::to_string(it->second.back());
+}
+
+std::string SsaBuilder::rename_def(const std::string& name) {
+    if (!is_ssa_renameable(name)) return name;
+    int& next = m_var_counter[name];
+    if (next == 0) next = 1;
+    int v = next++;
+    m_var_stack[name].push_back(v);
+    return name + std::to_string(v);
 }
 
 TacOp SsaBuilder::parse_tac(const std::string& stmt) {
@@ -267,6 +458,9 @@ void SsaBuilder::build(const Cfg& cfg) {
     computeRpo();
     computeDominators();
     computeDominanceFrontiers();
+    placePhis();
+    collectDefinedNames();
+    rename();
     m_ssa.rpo_num = m_rpo_num;
     m_ssa.idom = m_idom;
     m_ssa.df = m_df;
