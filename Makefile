@@ -74,25 +74,12 @@ CXXFLAGS = -O2 -Wall -Wextra -std=c++20 $(LLVM_CXXFLAGS) \
 LDFLAGS = $(LLVM_LDFLAGS) -lclang-cpp -lLLVM -Wl,-rpath,$(LLVM_LIBDIR)
 
 TARGET = web/processor
-SRC = cpp/main.cpp \
-      cpp/facade.cpp \
-      cpp/text_utils.cpp \
-      cpp/output_utils.cpp \
-      cpp/ast/ast_out.cpp \
-      cpp/ast/ast_builder.cpp \
-      cpp/ast/clang_session.cpp \
-      cpp/polish/pn_builder.cpp \
-      cpp/cfg/cfg_utils.cpp \
-      cpp/cfg/cfg_builder.cpp \
-      cpp/cfg/cfg_out.cpp \
-      cpp/ssa/ssa_builder.cpp \
-      cpp/ssa/ssa_out.cpp \
-      cpp/draw/ast_drawer.cpp \
-      cpp/draw/cfg_drawer.cpp \
-      cpp/draw/ssa_drawer.cpp \
-      cpp/draw/dot_runner.cpp \
-      cpp/draw/dotgen.cpp
-OBJ = $(SRC:.cpp=.o)
+SRC = $(shell find cpp -name '*.cpp' | sort)
+
+# Mirror the source tree under build/ so that same-named files in different
+# subdirectories don't collide (e.g. cpp/ast/foo.cpp vs cpp/cfg/foo.cpp).
+OBJ = $(patsubst %.cpp,build/%.o,$(SRC))
+DEP = $(OBJ:.o=.d)
 
 # Generate per-object dependency files (-MMD) so header changes rebuild.
 CXXFLAGS += -MMD -MP
@@ -102,12 +89,14 @@ all: $(TARGET)
 $(TARGET): $(OBJ)
 	$(CXX) -o $@ $(OBJ) $(LDFLAGS)
 
-%.o: %.cpp
+build/%.o: %.cpp
+	@mkdir -p $(dir $@)
 	$(CXX) $(CXXFLAGS) -c -o $@ $<
 
--include $(OBJ:.o=.d)
+-include $(DEP)
 
 clean:
-	rm -f $(TARGET) $(OBJ) $(OBJ:.o=.d)
+	rm -f $(TARGET)
+	rm -rf build
 
 .PHONY: all clean
