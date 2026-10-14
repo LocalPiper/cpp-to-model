@@ -2,17 +2,19 @@
 
 namespace cpp2model {
 
-std::string stringify_func_decl(const std::string &func_name,
-                                const std::vector<std::string> &func_params) {
-  std::string res = func_name + "(";
-  for (const std::string &par : func_params) {
-    if (par.empty())
+std::string stringifyFuncDecl(const std::string &funcName,
+                              const std::vector<std::string> &params) {
+  std::string res = funcName + "(";
+  bool first = true;
+  for (const std::string &p : params) {
+    if (p.empty())
       continue;
-    res += par + ",";
+    if (!first)
+      res += ",";
+    res += p;
+    first = false;
   }
-  if (res.back() == ',')
-    res.pop_back();
-  res.push_back(')');
+  res += ")";
   return res;
 }
 

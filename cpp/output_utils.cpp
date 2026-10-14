@@ -23,30 +23,30 @@ const char *termKindName(TermKind k) {
 }
 
 void emitTerminatorJson(std::ostream &os, const Terminator &t) {
-  os << "{\"kind\":\"" << termKindName(t.kind) << "\"";
-  switch (t.kind) {
+  os << "{\"kind\":\"" << termKindName(t.Kind) << "\"";
+  switch (t.Kind) {
   case TermKind::Fallthrough:
     break;
   case TermKind::Jump:
-    os << ",\"target\":" << t.target;
+    os << ",\"target\":" << t.Target;
     break;
   case TermKind::Branch:
-    os << ",\"cond\":\"" << escapeJson(t.cond) << "\""
-       << ",\"on_true\":" << t.on_true << ",\"on_false\":" << t.on_false;
+    os << ",\"cond\":\"" << escapeJson(t.Cond) << "\""
+       << ",\"on_true\":" << t.OnTrue << ",\"on_false\":" << t.OnFalse;
     break;
   case TermKind::Switch:
-    os << ",\"switch_val\":\"" << escapeJson(t.switch_val) << "\""
+    os << ",\"switch_val\":\"" << escapeJson(t.SwitchVal) << "\""
        << ",\"cases\":[";
-    for (size_t i = 0; i < t.cases.size(); ++i) {
+    for (size_t i = 0; i < t.Cases.size(); ++i) {
       if (i)
         os << ",";
-      os << "{\"value\":" << t.cases[i].first
-         << ",\"target\":" << t.cases[i].second << "}";
+      os << "{\"value\":" << t.Cases[i].first
+         << ",\"target\":" << t.Cases[i].second << "}";
     }
-    os << "],\"default_target\":" << t.default_target;
+    os << "],\"default_target\":" << t.DefaultTarget;
     break;
   case TermKind::Return:
-    os << ",\"ret_val\":\"" << escapeJson(t.ret_val) << "\"";
+    os << ",\"ret_val\":\"" << escapeJson(t.RetVal) << "\"";
     break;
   }
   os << "}";

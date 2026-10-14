@@ -291,15 +291,15 @@ void SsaBuilder::renameFragment(std::string &field) {
 }
 
 void SsaBuilder::renameTerminator(Terminator &t) {
-  switch (t.kind) {
+  switch (t.Kind) {
   case TermKind::Branch:
-    renameFragment(t.cond);
+    renameFragment(t.Cond);
     break;
   case TermKind::Switch:
-    renameFragment(t.switch_val);
+    renameFragment(t.SwitchVal);
     break;
   case TermKind::Return:
-    renameFragment(t.ret_val);
+    renameFragment(t.RetVal);
     break;
   default:
     break;
@@ -468,21 +468,21 @@ void SsaBuilder::computeEdges() {
       m_ssa.blocks[i].succs.push_back(target);
       m_ssa.blocks[target].preds.push_back(i);
     };
-    switch (t.kind) {
+    switch (t.Kind) {
     case TermKind::Fallthrough:
       assert(false && "Fallthrough terminator survived into SSA");
       break;
     case TermKind::Jump:
-      add_edge(t.target);
+      add_edge(t.Target);
       break;
     case TermKind::Branch:
-      add_edge(t.on_true);
-      add_edge(t.on_false);
+      add_edge(t.OnTrue);
+      add_edge(t.OnFalse);
       break;
     case TermKind::Switch:
-      for (const auto &c : t.cases)
+      for (const auto &c : t.Cases)
         add_edge(c.second);
-      add_edge(t.default_target);
+      add_edge(t.DefaultTarget);
       break;
     case TermKind::Return:
       break;
@@ -491,15 +491,15 @@ void SsaBuilder::computeEdges() {
 }
 
 void SsaBuilder::parseBlocks(const Cfg &cfg) {
-  m_ssa.func_decl = cfg.func_decl;
+  m_ssa.func_decl = cfg.FuncDecl;
   m_ssa.blocks.clear();
-  m_ssa.blocks.reserve(cfg.blocks.size());
+  m_ssa.blocks.reserve(cfg.Blocks.size());
 
-  for (const BB &bb : cfg.blocks) {
+  for (const BB &bb : cfg.Blocks) {
     SsaBB out;
-    out.term = bb.term;
-    out.ops.reserve(bb.statements.size());
-    for (const std::string &s : bb.statements) {
+    out.term = bb.Term;
+    out.ops.reserve(bb.Statements.size());
+    for (const std::string &s : bb.Statements) {
       out.ops.push_back(parse_tac(s));
     }
     m_ssa.blocks.push_back(std::move(out));

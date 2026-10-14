@@ -14,7 +14,7 @@ CfgColors ssaBlockColors(const SsaCfg &ssa, int bbIndex) {
     c.fill = "#e3f2fd";
     c.stroke = "#1e88e5";
     c.text = "#0d47a1";
-  } else if (bb.term.kind == TermKind::Return) {
+  } else if (bb.term.Kind == TermKind::Return) {
     c.fill = "#e8f5e9";
     c.stroke = "#43a047";
     c.text = "#1b5e20";
@@ -85,7 +85,7 @@ std::string ssaToDot(const SsaCfg &ssa) {
       label += "\\l" + dotEscape(ssaPhiText(p));
     for (const TacOp &op : bb.ops)
       label += "\\l" + dotEscape(ssaTacText(op));
-    if (bb.term.kind != TermKind::Fallthrough)
+    if (bb.term.Kind != TermKind::Fallthrough)
       label += "\\l" + dotEscape(terminatorText(bb.term));
     label += "\\l";
 

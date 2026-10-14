@@ -8,10 +8,10 @@ namespace cpp2model {
 
 CfgColors cfgBlockColors(const Cfg &cfg, int bbIndex) {
   CfgColors c;
-  const BB &bb = cfg.blocks[bbIndex];
+  const BB &bb = cfg.Blocks[bbIndex];
 
   const bool isEntry = (bbIndex == 0);
-  const bool isExit = (bb.term.kind == TermKind::Return);
+  const bool isExit = (bb.Term.Kind == TermKind::Return);
 
   if (isEntry) {
     c.fill = "#e3f2fd";
@@ -32,10 +32,10 @@ CfgColors cfgBlockColors(const Cfg &cfg, int bbIndex) {
 namespace {
 
 std::vector<std::vector<int>> cfgSuccs(const Cfg &cfg) {
-  std::vector<std::vector<int>> succs(cfg.blocks.size());
-  for (size_t i = 0; i < cfg.blocks.size(); ++i) {
+  std::vector<std::vector<int>> succs(cfg.Blocks.size());
+  for (size_t i = 0; i < cfg.Blocks.size(); ++i) {
     for (const DotEdge &e :
-         terminatorEdges(static_cast<int>(i), cfg.blocks[i].term))
+         terminatorEdges(static_cast<int>(i), cfg.Blocks[i].Term))
       succs[i].push_back(e.to);
   }
   return succs;
@@ -45,7 +45,7 @@ std::vector<std::vector<int>> cfgSuccs(const Cfg &cfg) {
 
 std::string cfgToDot(const Cfg &cfg) {
   std::ostringstream s;
-  const int n = static_cast<int>(cfg.blocks.size());
+  const int n = static_cast<int>(cfg.Blocks.size());
 
   s << "digraph cfg {\n";
   s << "  rankdir=TB;\n";
@@ -59,7 +59,7 @@ std::string cfgToDot(const Cfg &cfg) {
 
   {
     const std::string label =
-        cfg.func_decl.empty() ? "(no function)" : cfg.func_decl;
+        cfg.FuncDecl.empty() ? "(no function)" : cfg.FuncDecl;
     s << "  func [label=\"" << dotEscape(label)
       << "\", shape=box, "
          "style=\"rounded,filled\", fillcolor=\"#e3f2fd\", "
@@ -72,14 +72,14 @@ std::string cfgToDot(const Cfg &cfg) {
   for (int i = 0; i < n; ++i) {
     if (!reach[i])
       continue;
-    const BB &bb = cfg.blocks[i];
+    const BB &bb = cfg.Blocks[i];
     const CfgColors col = cfgBlockColors(cfg, i);
 
     std::string label = "BB" + std::to_string(i);
-    for (const std::string &st : bb.statements)
+    for (const std::string &st : bb.Statements)
       label += "\\l" + dotEscape(st);
-    if (bb.term.kind != TermKind::Fallthrough)
-      label += "\\l" + dotEscape(terminatorText(bb.term));
+    if (bb.Term.Kind != TermKind::Fallthrough)
+      label += "\\l" + dotEscape(terminatorText(bb.Term));
     label += "\\l";
 
     s << "  BB" << i << " [label=\"" << label << "\""
@@ -91,7 +91,7 @@ std::string cfgToDot(const Cfg &cfg) {
 
   std::vector<DotEdge> edges;
   for (int u = 0; u < n; ++u) {
-    for (DotEdge e : terminatorEdges(u, cfg.blocks[u].term)) {
+    for (DotEdge e : terminatorEdges(u, cfg.Blocks[u].Term)) {
       if (e.to < 0 || e.to >= n)
         continue;
       edges.push_back(std::move(e));

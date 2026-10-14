@@ -5,7 +5,7 @@
 namespace cpp2model {
 
 std::string CfgDrawer::render(const Cfg &cfg) const {
-  if (cfg.blocks.empty())
+  if (cfg.Blocks.empty())
     return "";
   std::string err;
   std::string svg = dotToSvg(cfgToDot(cfg), err);

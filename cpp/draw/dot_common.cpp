@@ -5,43 +5,43 @@
 namespace cpp2model {
 
 std::string terminatorText(const Terminator &t) {
-  switch (t.kind) {
+  switch (t.Kind) {
   case TermKind::Fallthrough:
     return "";
   case TermKind::Jump:
-    return "jump BB" + std::to_string(t.target);
+    return "jump BB" + std::to_string(t.Target);
   case TermKind::Branch:
-    return "if " + t.cond + " ? BB" + std::to_string(t.on_true) + " : BB" +
-           std::to_string(t.on_false);
+    return "if " + t.Cond + " ? BB" + std::to_string(t.OnTrue) + " : BB" +
+           std::to_string(t.OnFalse);
   case TermKind::Switch:
-    return "switch " + t.switch_val;
+    return "switch " + t.SwitchVal;
   case TermKind::Return:
-    return t.ret_val.empty() ? "return" : "return " + t.ret_val;
+    return t.RetVal.empty() ? "return" : "return " + t.RetVal;
   }
   return "";
 }
 
 std::vector<DotEdge> terminatorEdges(int block, const Terminator &t) {
   std::vector<DotEdge> out;
-  switch (t.kind) {
+  switch (t.Kind) {
   case TermKind::Fallthrough:
     break;
   case TermKind::Jump:
-    if (t.target >= 0)
-      out.push_back({block, t.target, "", false});
+    if (t.Target >= 0)
+      out.push_back({block, t.Target, "", false});
     break;
   case TermKind::Branch:
-    if (t.on_true >= 0)
-      out.push_back({block, t.on_true, "true", true});
-    if (t.on_false >= 0)
-      out.push_back({block, t.on_false, "false", true});
+    if (t.OnTrue >= 0)
+      out.push_back({block, t.OnTrue, "true", true});
+    if (t.OnFalse >= 0)
+      out.push_back({block, t.OnFalse, "false", true});
     break;
   case TermKind::Switch:
-    for (auto &[v, tgt] : t.cases)
+    for (auto &[v, tgt] : t.Cases)
       if (tgt >= 0)
         out.push_back({block, tgt, std::to_string(v), true});
-    if (t.default_target >= 0)
-      out.push_back({block, t.default_target, "default", true});
+    if (t.DefaultTarget >= 0)
+      out.push_back({block, t.DefaultTarget, "default", true});
     break;
   case TermKind::Return:
     break;
