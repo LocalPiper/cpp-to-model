@@ -1,15 +1,15 @@
 #include "ast/ast_builder.h"
 #include "ast/clang_session.h"
-#include "polish/pn_builder.h"
 #include "cfg/cfg_builder.h"
 #include "cfg/cfg_out.h"
-#include "ssa/ssa_builder.h"
-#include "ssa/ssa_out.h"
 #include "draw/ast_drawer.h"
 #include "draw/cfg_drawer.h"
 #include "draw/ssa_drawer.h"
 #include "facade.h"
 #include "json_out.h"
+#include "polish/pn_builder.h"
+#include "ssa/ssa_builder.h"
+#include "ssa/ssa_out.h"
 #include "text_utils.h"
 
 #include <cctype>
@@ -24,89 +24,96 @@ namespace {
 
 constexpr size_t kMaxInputBytes = 200000;
 
-}  // namespace
+} // namespace
 
 int main() {
-    std::ios::sync_with_stdio(false);
+  std::ios::sync_with_stdio(false);
 
-    std::string code;
-    std::string line;
-    while (std::getline(std::cin, line)) {
-        if (!code.empty()) code += '\n';
-        code += line;
+  std::string code;
+  std::string line;
+  while (std::getline(std::cin, line)) {
+    if (!code.empty())
+      code += '\n';
+    code += line;
+  }
+
+  bool blank = true;
+  for (unsigned char c : code) {
+    if (!std::isspace(c)) {
+      blank = false;
+      break;
     }
-
-    bool blank = true;
-    for (unsigned char c : code) {
-        if (!std::isspace(c)) { blank = false; break; }
-    }
-    if (blank) {
-        std::cout << "{\"ok\":false,\"error\":\"No input provided.\"}\n";
-        return 0;
-    }
-    if (code.size() > kMaxInputBytes) {
-        std::cout << "{\"ok\":false,\"error\":\"Input too large (limit 200000 bytes).\"}\n";
-        return 0;
-    }
-
-    InputFacade facade(std::make_unique<PassthroughStrategy>());
-    std::string source = facade.wrap(code);
-
-    AstBuilder builder;
-    ParseSummary summary;
-    parse_and_build(source, builder, summary);
-
-    const TreeModel& tree = builder.tree();
-
-    PolishBuilder pn_builder;
-    pn_builder.build(tree);
-    const std::string polish = pn_builder.polish();
-
-    CfgBuilder cfg_builder;
-    cfg_builder.build(tree);
-    const Cfg& cfg = cfg_builder.cfg();
-    
-    SsaBuilder ssa_builder;
-    ssa_builder.build(cfg);
-    const SsaCfg& ssa = ssa_builder.ssa();
-
-    AstDrawer drawer;
-    std::string svg = drawer.render(tree);
-
-    CfgDrawer cfg_drawer;
-    std::string cfg_svg = cfg_drawer.render(cfg);
-
-    SsaDrawer ssa_drawer;
-    std::string ssa_svg = ssa_drawer.render(ssa);
-
-    std::ostringstream out;
-    out << "{\n";
-    out << "  \"ok\": " << (summary.errors == 0 ? "true" : "false") << ",\n";
-    out << "  \"node_count\": " << (static_cast<int>(tree.nodes.size()) - 1) << ",\n";
-    out << "  \"truncated\": " << (tree.truncated ? "true" : "false") << ",\n";
-    out << "  \"errors\": " << summary.errors << ",\n";
-    out << "  \"warnings\": " << summary.warnings << ",\n";
-    out << "  \"diagnostics\": [";
-    for (size_t i = 0; i < summary.diagnostics.size(); ++i) {
-        if (i) out << ",";
-        out << "\"" << escape_json(summary.diagnostics[i]) << "\"";
-    }
-    out << "],\n";
-    out << "  \"ast\": ";
-    emit_tree_json(out, tree);
-    out << ",\n";
-    out << "  \"svg\": \"" << escape_json(svg) << "\",\n";
-    out << "  \"cfg\": ";
-    emit_cfg_json(out, cfg);
-    out << ",\n";
-    out << "  \"cfg_svg\": \"" << escape_json(cfg_svg) << "\",\n";
-    out << "  \"ssa\": ";
-    emit_ssa_json(out, ssa);
-    out << ",\n";
-    out << "  \"ssa_svg\": \"" << escape_json(ssa_svg) << "\",\n";
-    out << "  \"polish_notation\": \"" << escape_json(polish) << "\"\n";
-    out << "}\n";
-
-    std::cout << out.str();
+  }
+  if (blank) {
+    std::cout << "{\"ok\":false,\"error\":\"No input provided.\"}\n";
     return 0;
+  }
+  if (code.size() > kMaxInputBytes) {
+    std::cout << "{\"ok\":false,\"error\":\"Input too large (limit 200000 "
+                 "bytes).\"}\n";
+    return 0;
+  }
+
+  InputFacade facade(std::make_unique<PassthroughStrategy>());
+  std::string source = facade.wrap(code);
+
+  AstBuilder builder;
+  ParseSummary summary;
+  parse_and_build(source, builder, summary);
+
+  const TreeModel &tree = builder.tree();
+
+  PolishBuilder pn_builder;
+  pn_builder.build(tree);
+  const std::string polish = pn_builder.polish();
+
+  CfgBuilder cfg_builder;
+  cfg_builder.build(tree);
+  const Cfg &cfg = cfg_builder.cfg();
+
+  SsaBuilder ssa_builder;
+  ssa_builder.build(cfg);
+  const SsaCfg &ssa = ssa_builder.ssa();
+
+  AstDrawer drawer;
+  std::string svg = drawer.render(tree);
+
+  CfgDrawer cfg_drawer;
+  std::string cfg_svg = cfg_drawer.render(cfg);
+
+  SsaDrawer ssa_drawer;
+  std::string ssa_svg = ssa_drawer.render(ssa);
+
+  std::ostringstream out;
+  out << "{\n";
+  out << "  \"ok\": " << (summary.errors == 0 ? "true" : "false") << ",\n";
+  out << "  \"node_count\": " << (static_cast<int>(tree.nodes.size()) - 1)
+      << ",\n";
+  out << "  \"truncated\": " << (tree.truncated ? "true" : "false") << ",\n";
+  out << "  \"errors\": " << summary.errors << ",\n";
+  out << "  \"warnings\": " << summary.warnings << ",\n";
+  out << "  \"diagnostics\": [";
+  for (size_t i = 0; i < summary.diagnostics.size(); ++i) {
+    if (i)
+      out << ",";
+    out << "\"" << escapeJson(summary.diagnostics[i]) << "\"";
+  }
+  out << "],\n";
+  out << "  \"ast\": ";
+  emit_tree_json(out, tree);
+  out << ",\n";
+  out << "  \"svg\": \"" << escapeJson(svg) << "\",\n";
+  out << "  \"cfg\": ";
+  emitCfgJson(out, cfg);
+  out << ",\n";
+  out << "  \"cfg_svg\": \"" << escapeJson(cfg_svg) << "\",\n";
+  out << "  \"ssa\": ";
+  emitSsaJson(out, ssa);
+  out << ",\n";
+  out << "  \"ssa_svg\": \"" << escapeJson(ssa_svg) << "\",\n";
+  out << "  \"polish_notation\": \"" << escapeJson(polish) << "\"\n";
+  out << "}\n";
+
+  std::cout << out.str();
+  return 0;
 }

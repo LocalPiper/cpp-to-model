@@ -6,6 +6,6 @@
 
 namespace cpp2model {
 
-void emit_tree_json(std::ostream& os, const TreeModel& tree);
+void emit_tree_json(std::ostream &os, const TreeModel &tree);
 
-}  // namespace cpp2model
+} // namespace cpp2model

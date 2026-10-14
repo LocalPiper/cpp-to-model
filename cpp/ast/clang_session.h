@@ -11,14 +11,13 @@ class FrontendAction;
 namespace cpp2model {
 
 struct ParseSummary {
-    std::vector<std::string> diagnostics;
-    unsigned errors = 0;
-    unsigned warnings = 0;
+  std::vector<std::string> diagnostics;
+  unsigned errors = 0;
+  unsigned warnings = 0;
 };
 
-
-bool run_tool_on_code(const std::string& code,
+bool run_tool_on_code(const std::string &code,
                       std::unique_ptr<clang::FrontendAction> action,
-                      ParseSummary& out);
+                      ParseSummary &out);
 
-}  // namespace cpp2model
+} // namespace cpp2model
