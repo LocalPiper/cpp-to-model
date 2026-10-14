@@ -3,6 +3,8 @@
 #include <cassert>
 #include <cctype>
 #include <sstream>
+#include <algorithm>
+#include <utility>
 
 namespace cpp2model {
 
@@ -57,6 +59,75 @@ bool SsaBuilder::is_binary_op(const std::string& tok) {
     };
     for (const char* op : kOps) if (tok == op) return true;
     return false;
+}
+
+int SsaBuilder::intersect(int a, int b) {
+    while (a != b) {
+        while (m_rpo_num[a] > m_rpo_num[b]) a = m_idom[a];
+        while (m_rpo_num[b] > m_rpo_num[a]) b = m_idom[b];
+    }
+    return a;
+}
+
+void SsaBuilder::computeRpo() {
+    const int n = static_cast<int>(m_ssa.blocks.size());
+    m_rpo.clear();
+    m_rpo.reserve(n);
+    m_rpo_num.assign(n, -1);
+
+    std::vector<bool> visited(n);
+    
+    std::vector<std::pair<int, size_t>> worklist;
+    
+    if (n > 0) {
+        worklist.push_back({0, 0});
+        visited[0] = true;
+    }
+
+    while (!worklist.empty()) {
+        auto &[b, idx] = worklist.back();
+        if (idx < m_ssa.blocks[b].succs.size()) {
+            int s = m_ssa.blocks[b].succs[idx++];
+            if (!visited[s]) {
+                visited[s] = true;
+                worklist.push_back({s, 0});
+            }
+        } else {
+            m_rpo.push_back(b);
+            worklist.pop_back();
+        }
+    }
+
+    std::reverse(m_rpo.begin(), m_rpo.end());
+    for (int i = 0; i < static_cast<int>(m_rpo.size()); ++i) {
+        m_rpo_num[m_rpo[i]] = i;
+    }
+}
+
+void SsaBuilder::computeDominators() {
+    const int n = static_cast<int>(m_ssa.blocks.size());
+    m_idom.assign(n, -1);
+
+    if (n == 0) return;
+    m_idom[0] = 0;
+
+    bool changed = true;
+    while (changed) {
+        changed = false;
+        for (int i = 1; i < static_cast<int>(m_rpo.size()); ++i) {
+            const int b = m_rpo[i];
+            int new_idom = -1;
+            for (int p : m_ssa.blocks[b].preds) {
+                if (m_rpo_num[p] == -1) continue; // unreachable block
+                if (m_idom[p] == -1) continue; // pred's idom not set
+                new_idom = new_idom == -1 ? p : intersect(p, new_idom);
+            }
+            if (new_idom != -1 && new_idom != m_idom[b]) {
+                m_idom[b] = new_idom;
+                changed = true;
+            }
+        }
+    }
 }
 
 TacOp SsaBuilder::parse_tac(const std::string& stmt) {
@@ -166,6 +237,10 @@ void SsaBuilder::parseBlocks(const Cfg& cfg) {
 void SsaBuilder::build(const Cfg& cfg) {
     parseBlocks(cfg);
     computeEdges();
+    computeRpo();
+    computeDominators();
+    m_ssa.rpo_num = m_rpo_num;
+    m_ssa.idom = m_idom;
 }
 
 } // namespace cpp2model

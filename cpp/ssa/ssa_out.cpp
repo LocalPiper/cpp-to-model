@@ -87,6 +87,13 @@ void emit_ssa_json(std::ostream& os, const SsaCfg& cfg) {
 
         os << "{\"kind\":\"bb\",\"index\":" << i;
 
+        if (i < cfg.rpo_num.size()) {
+            os << ",\"rpo_num\":" << cfg.rpo_num[i];
+        }
+        if (i < cfg.idom.size()) {
+            os << ",\"idom\":" << cfg.idom[i];
+        }
+
         os << ",\"preds\":[";
         for (size_t k = 0; k < bb.preds.size(); ++k) {
             if (k) os << ",";
