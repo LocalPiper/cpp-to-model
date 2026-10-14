@@ -80,6 +80,7 @@ SRC = cpp/main.cpp \
       cpp/json_out.cpp \
       cpp/ast/ast_builder.cpp \
       cpp/ast/clang_session.cpp \
+      cpp/polish/pn_builder.cpp \
       cpp/cfg/cfg_utils.cpp \
       cpp/cfg/cfg_builder.cpp \
       cpp/cfg/cfg_out.cpp \

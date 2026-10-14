@@ -260,7 +260,7 @@ function render(data) {
     // --- Raw JSON panel ---
     if (isWhy) {
         jsonSummary.textContent = 'Raw WHY payload (JSON)';
-        jsonBox.textContent = data.why ? JSON.stringify(data.why, null, 2) : '(no why payload)';
+        jsonBox.textContent = data.polish_notation ? JSON.stringify(data.polish_notation, null, 2) : '(no why payload)';
     } else {
         jsonSummary.textContent = isCfg ? 'Raw CFG (JSON)'
                               : isSsa ? 'Raw SSA (JSON)'
@@ -275,7 +275,7 @@ function renderWhy(data) {
     const pre = document.createElement('div');
     pre.className = 'why-text';
     // Accept a few plausible shapes from the server.
-    const why = data.why;
+    const why = data.polish_notation;
     let text = '';
     if (typeof why === 'string') {
         text = why;

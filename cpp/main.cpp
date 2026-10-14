@@ -1,5 +1,6 @@
 #include "ast/ast_builder.h"
 #include "ast/clang_session.h"
+#include "polish/pn_builder.h"
 #include "cfg/cfg_builder.h"
 #include "cfg/cfg_out.h"
 #include "ssa/ssa_builder.h"
@@ -56,6 +57,11 @@ int main() {
     parse_and_build(source, builder, summary);
 
     const TreeModel& tree = builder.tree();
+
+    PolishBuilder pn_builder;
+    pn_builder.build(tree);
+    const std::string polish = pn_builder.polish();
+
     CfgBuilder cfg_builder;
     cfg_builder.build(tree);
     const Cfg& cfg = cfg_builder.cfg();
@@ -97,7 +103,8 @@ int main() {
     out << "  \"ssa\": ";
     emit_ssa_json(out, ssa);
     out << ",\n";
-    out << "  \"ssa_svg\": \"" << escape_json(ssa_svg) << "\"\n";
+    out << "  \"ssa_svg\": \"" << escape_json(ssa_svg) << "\",\n";
+    out << "  \"polish_notation\": \"" << escape_json(polish) << "\"\n";
     out << "}\n";
 
     std::cout << out.str();
