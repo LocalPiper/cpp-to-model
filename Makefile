@@ -78,7 +78,7 @@ SRC = cpp/main.cpp \
       cpp/facade.cpp \
       cpp/text_utils.cpp \
       cpp/output_utils.cpp \
-      cpp/json_out.cpp \
+      cpp/ast/ast_out.cpp \
       cpp/ast/ast_builder.cpp \
       cpp/ast/clang_session.cpp \
       cpp/polish/pn_builder.cpp \

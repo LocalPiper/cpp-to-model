@@ -1,14 +1,14 @@
-#include "json_out.h"
+#include "ast_out.h"
 
 #include <ostream>
 #include <vector>
 
-#include "text_utils.h"
+#include "../text_utils.h"
 
 namespace cpp2model {
 namespace {
 
-void emit_node_json(std::ostream &os, const std::vector<Node> &nodes, int i) {
+void emitNodeJson(std::ostream &os, const std::vector<Node> &nodes, int i) {
   const Node &n = nodes[i];
   os << "{";
   os << "\"kind\":\"" << escapeJson(n.kind) << "\"";
@@ -23,7 +23,7 @@ void emit_node_json(std::ostream &os, const std::vector<Node> &nodes, int i) {
     for (size_t k = 0; k < n.children.size(); ++k) {
       if (k)
         os << ",";
-      emit_node_json(os, nodes, n.children[k]);
+      emitNodeJson(os, nodes, n.children[k]);
     }
     os << "]";
   }
@@ -32,12 +32,12 @@ void emit_node_json(std::ostream &os, const std::vector<Node> &nodes, int i) {
 
 } // namespace
 
-void emit_tree_json(std::ostream &os, const TreeModel &tree) {
+void emitTreeJson(std::ostream &os, const TreeModel &tree) {
   if (tree.nodes.empty()) {
     os << "null";
     return;
   }
-  emit_node_json(os, tree.nodes, 0);
+  emitNodeJson(os, tree.nodes, 0);
 }
 
 } // namespace cpp2model

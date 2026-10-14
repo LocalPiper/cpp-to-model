@@ -1,4 +1,5 @@
 #include "ast/ast_builder.h"
+#include "ast/ast_out.h"
 #include "ast/clang_session.h"
 #include "cfg/cfg_builder.h"
 #include "cfg/cfg_out.h"
@@ -6,7 +7,6 @@
 #include "draw/cfg_drawer.h"
 #include "draw/ssa_drawer.h"
 #include "facade.h"
-#include "json_out.h"
 #include "polish/pn_builder.h"
 #include "ssa/ssa_builder.h"
 #include "ssa/ssa_out.h"
@@ -100,7 +100,7 @@ int main() {
   }
   out << "],\n";
   out << "  \"ast\": ";
-  emit_tree_json(out, tree);
+  emitTreeJson(out, tree);
   out << ",\n";
   out << "  \"svg\": \"" << escapeJson(svg) << "\",\n";
   out << "  \"cfg\": ";
