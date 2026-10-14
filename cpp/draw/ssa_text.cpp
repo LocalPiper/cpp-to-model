@@ -4,6 +4,20 @@ namespace cpp2model {
 
 std::string ssaTacText(const TacOp &op) {
   std::string out = op.dst + " = ";
+  if (op.op == "call") {
+    if (!op.args.empty()) {
+      out += op.args[0];
+      out += "(";
+      for (size_t i = 1; i < op.args.size(); ++i) {
+        if (i > 1)
+          out += ", ";
+        out += op.args[i];
+      }
+      out += ")";
+    }
+    return out;
+  }
+
   if (op.op == "=") {
     out += op.args.empty() ? "" : op.args[0];
   } else if (op.args.size() == 1) {

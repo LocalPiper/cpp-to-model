@@ -391,6 +391,26 @@ TacOp SsaBuilder::parseTac(const std::string &stmt) {
   const std::vector<std::string> toks = splitWs(rhs);
   assert(!toks.empty() && "TAC RHS must not be empty");
 
+  const auto lp = rhs.find('(');
+  if (lp != std::string::npos && rhs.back() == ')') {
+    out.op = "call";
+    out.args.push_back(rhs.substr(0, lp));
+    const std::string inner = rhs.substr(lp + 1, rhs.size() - lp - 2);
+    if (!inner.empty()) {
+      size_t start = 0;
+      while (true) {
+        auto comma = inner.find(", ", start);
+        if (comma == std::string::npos) {
+          out.args.push_back(inner.substr(start));
+          break;
+        }
+        out.args.push_back(inner.substr(start, comma - start));
+        start = comma + 2;
+      }
+    }
+    return out;
+  }
+
   if (toks.size() == 1) {
     const std::string &t = toks[0];
     if (t.size() > 1 && (t[0] == '!' || t[0] == '~' || t[0] == '-' ||

@@ -78,6 +78,7 @@ private:
   std::string walkExpr(int e, bool tempNeeded = false, bool valueNeeded = true);
   std::string walkUnary(int e, bool tempNeeded, bool valueNeeded);
   std::string walkBinary(int e, bool tempNeeded, bool valueNeeded);
+  std::string walkCall(int e, bool tempNeeded, bool valueNeeded);
 
   bool isValueNode(const Node &n) const;
   bool isCompoundAssign(const std::string &op) const;

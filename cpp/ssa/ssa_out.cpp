@@ -12,6 +12,18 @@ namespace {
 
 void emitTac(std::ostream &os, const TacOp &op) {
   os << "\"" << escapeJson(op.dst) << " = ";
+  if (op.op == "call") {
+    assert(!op.args.empty());
+    os << escapeJson(op.args[0]) << "(";
+    for (size_t i = 1; i < op.args.size(); ++i) {
+      if (i > 1)
+        os << ", ";
+      os << escapeJson(op.args[i]);
+    }
+    os << ")";
+    os << "\"";
+    return;
+  }
   if (op.op == "=") {
     assert(op.args.size() == 1);
     os << escapeJson(op.args[0]);

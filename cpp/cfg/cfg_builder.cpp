@@ -98,6 +98,8 @@ std::string CfgBuilder::walkExpr(int e, bool tempNeeded, bool valueNeeded) {
   if (exprNode.kind == "BinaryOperator" ||
       exprNode.kind == "CompoundAssignOperator")
     return walkBinary(e, tempNeeded, valueNeeded);
+  if (exprNode.kind == "CallExpr")
+    return walkCall(e, tempNeeded, valueNeeded);
 
   return "";
 }
@@ -175,6 +177,37 @@ std::string CfgBuilder::walkBinary(int e, bool tempNeeded, bool valueNeeded) {
   const std::string t = makeTemp();
   addToBlock(t + " = " + expr);
   return t;
+}
+
+std::string CfgBuilder::walkCall(int e, bool tempNeeded, bool valueNeeded) {
+  (void)tempNeeded;
+  const Node &callNode = getNode(e);
+
+  if (callNode.detail.empty())
+    return "";
+
+  const std::vector<int> &children = callNode.children;
+  std::vector<std::string> args;
+  if (children.size() > 1)
+    args.reserve(children.size() - 1);
+  for (size_t i = 1; i < children.size(); ++i) {
+    std::string arg = walkExpr(children[i], true, true);
+    if (arg.empty())
+      return "";
+    args.push_back(std::move(arg));
+  }
+
+  std::string expr = callNode.detail + "(";
+  for (size_t i = 0; i < args.size(); ++i) {
+    if (i)
+      expr += ", ";
+    expr += args[i];
+  }
+  expr += ")";
+
+  const std::string t = makeTemp();
+  addToBlock(t + " = " + expr);
+  return valueNeeded ? t : "";
 }
 
 void CfgBuilder::walkStmt(int s) {
@@ -610,7 +643,7 @@ void CfgBuilder::build(const TreeModel &ast) {
   bool functionFound = false;
   for (int childIdx : root.children) {
     if (getNode(childIdx).kind == "Function") {
-      assert(!functionFound);
+      assert(!functionFound && "Only 1 function declaration/definition is allowed");
       functionFound = true;
       walkFunction(childIdx);
     }
