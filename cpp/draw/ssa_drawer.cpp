@@ -1,6 +1,6 @@
 #include "ssa_drawer.h"
-#include "ssa_dot.h"
 #include "dot_runner.h"
+#include "ssa_dot.h"
 
 namespace cpp2model {
 

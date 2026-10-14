@@ -35,7 +35,7 @@ std::vector<char> reachableBlocks(int numBlocks,
                                   const std::vector<std::vector<int>> &succs);
 
 std::vector<EdgeKind> classifyEdges(int numBlocks,
-                                     const std::vector<DotEdge> &edges);
+                                    const std::vector<DotEdge> &edges);
 
 CfgEdgeColors cfgEdgeColors(EdgeKind kind, bool isConditional);
 

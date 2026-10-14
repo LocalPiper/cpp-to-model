@@ -72,7 +72,7 @@ std::vector<char> reachableBlocks(int numBlocks,
 }
 
 std::vector<EdgeKind> classifyEdges(int numBlocks,
-                                     const std::vector<DotEdge> &edges) {
+                                    const std::vector<DotEdge> &edges) {
   std::vector<std::vector<int>> outEdges(numBlocks);
   for (size_t ei = 0; ei < edges.size(); ++ei) {
     int u = edges[ei].from;

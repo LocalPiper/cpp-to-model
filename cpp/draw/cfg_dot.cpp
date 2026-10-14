@@ -34,8 +34,8 @@ namespace {
 std::vector<std::vector<int>> cfgSuccs(const Cfg &cfg) {
   std::vector<std::vector<int>> succs(cfg.blocks.size());
   for (size_t i = 0; i < cfg.blocks.size(); ++i) {
-    for (const DotEdge &e : terminatorEdges(static_cast<int>(i),
-                                             cfg.blocks[i].term))
+    for (const DotEdge &e :
+         terminatorEdges(static_cast<int>(i), cfg.blocks[i].term))
       succs[i].push_back(e.to);
   }
   return succs;
