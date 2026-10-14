@@ -1,3 +1,4 @@
+// clang_session.h
 #pragma once
 
 #include <memory>
@@ -6,7 +7,7 @@
 
 namespace clang {
 class FrontendAction;
-}
+} // namespace clang
 
 namespace cpp2model {
 
@@ -16,8 +17,8 @@ struct ParseSummary {
   unsigned warnings = 0;
 };
 
-bool run_tool_on_code(const std::string &code,
-                      std::unique_ptr<clang::FrontendAction> action,
-                      ParseSummary &out);
+bool runToolOnCode(const std::string &code,
+                   std::unique_ptr<clang::FrontendAction> action,
+                   ParseSummary &out);
 
 } // namespace cpp2model

@@ -1,3 +1,4 @@
+// clang_session.cpp
 #include "clang_session.h"
 
 #include <clang/Basic/Diagnostic.h>
@@ -25,7 +26,7 @@ namespace {
 
 class CollectingDiagConsumer : public clang::DiagnosticConsumer {
 public:
-  ParseSummary summary;
+  ParseSummary Summary;
 
   void HandleDiagnostic(clang::DiagnosticsEngine::Level level,
                         const clang::Diagnostic &info) override {
@@ -41,15 +42,15 @@ public:
       break;
     case clang::DiagnosticsEngine::Warning:
       severity = "warning";
-      ++summary.warnings;
+      ++Summary.warnings;
       break;
     case clang::DiagnosticsEngine::Error:
       severity = "error";
-      ++summary.errors;
+      ++Summary.errors;
       break;
     case clang::DiagnosticsEngine::Fatal:
       severity = "fatal";
-      ++summary.errors;
+      ++Summary.errors;
       break;
     }
 
@@ -71,18 +72,18 @@ public:
     if (!loc.empty())
       msg += loc + ": ";
     msg += severity + ": " + buf.str().str();
-    summary.diagnostics.push_back(msg);
+    Summary.diagnostics.push_back(msg);
     clang::DiagnosticConsumer::HandleDiagnostic(level, info);
   }
 };
 
 } // namespace
 
-bool run_tool_on_code(const std::string &code,
-                      std::unique_ptr<clang::FrontendAction> action,
-                      ParseSummary &out) {
+bool runToolOnCode(const std::string &code,
+                   std::unique_ptr<clang::FrontendAction> action,
+                   ParseSummary &out) {
   char tmpl[] = "/tmp/cpp-ast-input-XXXXXX.cc";
-  int fd = ::mkstemps(tmpl, 3); // suffix ".cc"
+  int fd = ::mkstemps(tmpl, 3);
   if (fd < 0)
     return false;
   std::string path(tmpl);
@@ -110,7 +111,7 @@ bool run_tool_on_code(const std::string &code,
   bool ok = inv.run();
   ::unlink(path.c_str());
 
-  out = std::move(diags.summary);
+  out = std::move(diags.Summary);
   return ok;
 }
 

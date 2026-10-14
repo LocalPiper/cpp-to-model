@@ -31,19 +31,19 @@ namespace {
 constexpr int kMaxNodes = 800;
 constexpr int kMaxDepth = 80;
 
-std::string int_to_string(const llvm::APInt &v, bool isSigned) {
+std::string intToString(const llvm::APInt &v, bool isSigned) {
   llvm::SmallString<32> buf;
   v.toString(buf, 10, isSigned);
   return buf.str().str();
 }
 
-std::string apsint_to_string(const llvm::APSInt &v) {
+std::string apsintToString(const llvm::APSInt &v) {
   llvm::SmallString<32> buf;
   v.toString(buf, 10);
   return buf.str().str();
 }
 
-const char *trait_name(clang::UnaryExprOrTypeTrait k) {
+const char *traitName(clang::UnaryExprOrTypeTrait k) {
   switch (k) {
   case clang::UETT_SizeOf:
     return "sizeof";
@@ -60,7 +60,7 @@ const char *trait_name(clang::UnaryExprOrTypeTrait k) {
   }
 }
 
-std::string loc_str(const clang::SourceManager *sm, clang::SourceLocation loc) {
+std::string locStr(const clang::SourceManager *sm, clang::SourceLocation loc) {
   if (loc.isInvalid() || !sm)
     return "";
   clang::PresumedLoc pl = sm->getPresumedLoc(loc);
@@ -71,9 +71,9 @@ std::string loc_str(const clang::SourceManager *sm, clang::SourceLocation loc) {
   return os.str();
 }
 
-std::string range_str(const clang::SourceManager *sm, clang::SourceRange r) {
-  std::string b = loc_str(sm, r.getBegin());
-  std::string e = loc_str(sm, r.getEnd());
+std::string rangeStr(const clang::SourceManager *sm, clang::SourceRange r) {
+  std::string b = locStr(sm, r.getBegin());
+  std::string e = locStr(sm, r.getEnd());
   if (b.empty())
     return "";
   if (e.empty() || b == e)
@@ -88,13 +88,13 @@ AstBuilder::AstBuilder() {
   root.cat = NodeCategory::Root;
   root.kind = "TranslationUnit";
   root.detail = "input.cc";
-  m_tree.nodes.push_back(std::move(root));
-  m_current = 0;
+  Tree.nodes.push_back(std::move(root));
+  Current = 0;
 }
 
 void AstBuilder::build(clang::ASTContext &ctx) {
-  m_sm = &ctx.getSourceManager();
-  m_ctx = &ctx;
+  SM = &ctx.getSourceManager();
+  Context = &ctx;
   for (auto *d : ctx.getTranslationUnitDecl()->decls())
     walkDecl(d);
 }
@@ -108,28 +108,27 @@ int AstBuilder::add(NodeCategory cat, const std::string &kind,
   n.detail = displayEscape(truncate(detail, 60));
   n.type = truncate(type, 60);
   n.range = range;
-  int idx = static_cast<int>(m_tree.nodes.size());
-  m_tree.nodes[m_current].children.push_back(idx);
-  m_tree.nodes.push_back(std::move(n));
+  int idx = static_cast<int>(Tree.nodes.size());
+  Tree.nodes[Current].children.push_back(idx);
+  Tree.nodes.push_back(std::move(n));
   return idx;
 }
 
-bool AstBuilder::limit_hit() {
-  if (m_depth >= kMaxDepth ||
-      static_cast<int>(m_tree.nodes.size()) >= kMaxNodes) {
-    m_tree.truncated = true;
+bool AstBuilder::limitHit() {
+  if (Depth >= kMaxDepth || static_cast<int>(Tree.nodes.size()) >= kMaxNodes) {
+    Tree.truncated = true;
     return true;
   }
   return false;
 }
 
-std::string AstBuilder::name_of(const clang::Decl *d) const {
+std::string AstBuilder::nameOf(const clang::Decl *d) const {
   if (auto *nd = clang::dyn_cast<clang::NamedDecl>(d))
     return nd->getDeclName().getAsString();
   return "";
 }
 
-std::string AstBuilder::decl_type(const clang::Decl *d) const {
+std::string AstBuilder::declType(const clang::Decl *d) const {
   if (auto *fd = clang::dyn_cast<clang::FunctionDecl>(d))
     return fd->getReturnType().getAsString();
   if (auto *vd = clang::dyn_cast<clang::ValueDecl>(d))
@@ -139,28 +138,25 @@ std::string AstBuilder::decl_type(const clang::Decl *d) const {
   return "";
 }
 
-std::string AstBuilder::decl_detail(const clang::Decl *d) const {
-  std::string n = name_of(d);
+std::string AstBuilder::declDetail(const clang::Decl *d) const {
+  std::string n = nameOf(d);
   if (!n.empty())
     return n;
   if (clang::isa<clang::NamespaceDecl>(d))
     return "(anonymous)";
   if (auto *ec = clang::dyn_cast<clang::EnumConstantDecl>(d))
-    return apsint_to_string(ec->getInitVal());
+    return apsintToString(ec->getInitVal());
   return "";
 }
 
-std::string AstBuilder::stmt_detail(clang::Stmt *s) const {
+std::string AstBuilder::stmtDetail(clang::Stmt *s) const {
   if (auto *bo = clang::dyn_cast<clang::BinaryOperator>(s))
     return bo->getOpcodeStr().str();
   if (auto *uo = clang::dyn_cast<clang::UnaryOperator>(s))
-    return clang::UnaryOperator::getOpcodeStr(uo->getOpcode())
-        .str(); // genuinely why does BinaryOperator have a public variant of
-                // this, but UnaryOperator does not?
+    return clang::UnaryOperator::getOpcodeStr(uo->getOpcode()).str();
   if (auto *il = clang::dyn_cast<clang::IntegerLiteral>(s))
     return truncate(
-        int_to_string(il->getValue(), il->getType()->isSignedIntegerType()),
-        24);
+        intToString(il->getValue(), il->getType()->isSignedIntegerType()), 24);
   if (auto *fl = clang::dyn_cast<clang::FloatingLiteral>(s)) {
     std::ostringstream os;
     os << std::setprecision(6) << fl->getValue().convertToDouble();
@@ -180,16 +176,16 @@ std::string AstBuilder::stmt_detail(clang::Stmt *s) const {
   if (clang::isa<clang::CXXNullPtrLiteralExpr>(s))
     return "nullptr";
   if (auto *dr = clang::dyn_cast<clang::DeclRefExpr>(s))
-    return name_of(dr->getDecl());
+    return nameOf(dr->getDecl());
   if (auto *me = clang::dyn_cast<clang::MemberExpr>(s)) {
-    std::string n = me->getMemberDecl() ? name_of(me->getMemberDecl()) : "";
+    std::string n = me->getMemberDecl() ? nameOf(me->getMemberDecl()) : "";
     return n.empty() ? "" : "." + n;
   }
   if (auto *ce = clang::dyn_cast<clang::CallExpr>(s)) {
     if (const clang::FunctionDecl *fd = ce->getDirectCallee())
-      return name_of(fd);
+      return nameOf(fd);
     if (auto *dre = clang::dyn_cast<clang::DeclRefExpr>(ce->getCallee()))
-      return name_of(dre->getDecl());
+      return nameOf(dre->getDecl());
     return "";
   }
   if (auto *coe = clang::dyn_cast<clang::CXXOperatorCallExpr>(s)) {
@@ -198,7 +194,7 @@ std::string AstBuilder::stmt_detail(clang::Stmt *s) const {
   }
   if (auto *cx = clang::dyn_cast<clang::CXXConstructExpr>(s)) {
     if (const clang::CXXConstructorDecl *cd = cx->getConstructor())
-      return name_of(cd);
+      return nameOf(cd);
     return "";
   }
   if (auto *cast = clang::dyn_cast<clang::CastExpr>(s)) {
@@ -216,35 +212,34 @@ std::string AstBuilder::stmt_detail(clang::Stmt *s) const {
     return cn ? cn : "";
   }
   if (auto *gs = clang::dyn_cast<clang::GotoStmt>(s))
-    return name_of(gs->getLabel());
+    return nameOf(gs->getLabel());
   if (auto *ls = clang::dyn_cast<clang::LabelStmt>(s))
-    return name_of(ls->getDecl());
+    return nameOf(ls->getDecl());
   if (auto *cs = clang::dyn_cast<clang::CaseStmt>(s)) {
-    if (m_ctx) {
+    if (Context) {
       clang::Expr::EvalResult result;
-      if (cs->getLHS()->EvaluateAsInt(result, *m_ctx)) {
+      if (cs->getLHS()->EvaluateAsInt(result, *Context)) {
         llvm::APSInt v = result.Val.getInt();
         llvm::SmallString<32> buf;
         v.toString(buf, 10, v.isSigned());
         return buf.str().str();
       }
     }
-    return "?"; // usually unreachable, but i can't throw here, and
-                // assert(false) is not good style
+    return "?";
   }
   if (clang::isa<clang::DefaultStmt>(s))
     return "default";
   if (auto *sz = clang::dyn_cast<clang::UnaryExprOrTypeTraitExpr>(s))
-    return trait_name(sz->getKind());
+    return traitName(sz->getKind());
   if (auto *ds = clang::dyn_cast<clang::DeclStmt>(s)) {
     std::string out;
     for (auto *d : ds->decls()) {
       if (!out.empty())
         out += ", ";
       if (auto *vd = clang::dyn_cast<clang::VarDecl>(d))
-        out += vd->getType().getAsString() + " " + name_of(vd);
+        out += vd->getType().getAsString() + " " + nameOf(vd);
       else
-        out += name_of(d);
+        out += nameOf(d);
     }
     return truncate(out, 40);
   }
@@ -253,13 +248,13 @@ std::string AstBuilder::stmt_detail(clang::Stmt *s) const {
   return "";
 }
 
-std::string AstBuilder::stmt_type(clang::Stmt *s) const {
+std::string AstBuilder::stmtType(clang::Stmt *s) const {
   if (auto *e = clang::dyn_cast<clang::Expr>(s))
     return e->getType().getAsString();
   return "";
 }
 
-bool AstBuilder::is_transparent(clang::Stmt *s) const {
+bool AstBuilder::isTransparent(clang::Stmt *s) const {
   return clang::isa<clang::ImplicitCastExpr>(s) ||
          clang::isa<clang::CXXBindTemporaryExpr>(s) ||
          clang::isa<clang::MaterializeTemporaryExpr>(s) ||
@@ -271,7 +266,7 @@ bool AstBuilder::is_transparent(clang::Stmt *s) const {
          clang::isa<clang::OpaqueValueExpr>(s);
 }
 
-void AstBuilder::walk_placeholder_or(clang::Stmt *s, const char *kind) {
+void AstBuilder::walkPlaceholderOr(clang::Stmt *s, const char *kind) {
   if (s) {
     walkStmt(s);
     return;
@@ -279,7 +274,7 @@ void AstBuilder::walk_placeholder_or(clang::Stmt *s, const char *kind) {
   add(NodeCategory::Statement, kind, "", "", "");
 }
 
-void AstBuilder::walk_range_decl(clang::DeclStmt *ds) {
+void AstBuilder::walkRangeDecl(clang::DeclStmt *ds) {
   if (!ds)
     return;
   for (auto *d : ds->decls()) {
@@ -287,15 +282,15 @@ void AstBuilder::walk_range_decl(clang::DeclStmt *ds) {
     if (!vd)
       continue;
 
-    int parent = m_current;
-    int idx = add(NodeCategory::Declaration, "Var", name_of(vd), decl_type(vd),
-                  range_str(m_sm, vd->getSourceRange()));
-    m_current = idx;
-    ++m_depth;
+    int parent = Current;
+    int idx = add(NodeCategory::Declaration, "Var", nameOf(vd), declType(vd),
+                  rangeStr(SM, vd->getSourceRange()));
+    Current = idx;
+    ++Depth;
     if (vd->hasInit())
       walkStmt(vd->getInit());
-    --m_depth;
-    m_current = parent;
+    --Depth;
+    Current = parent;
   }
 }
 
@@ -304,16 +299,15 @@ void AstBuilder::walkDecl(clang::Decl *d) {
     return;
   if (d->isImplicit())
     return;
-  if (limit_hit())
+  if (limitHit())
     return;
 
-  int parent = m_current;
-  int idx =
-      add(NodeCategory::Declaration, std::string(d->getDeclKindName()),
-          decl_detail(d), decl_type(d), range_str(m_sm, d->getSourceRange()));
+  int parent = Current;
+  int idx = add(NodeCategory::Declaration, std::string(d->getDeclKindName()),
+                declDetail(d), declType(d), rangeStr(SM, d->getSourceRange()));
 
-  m_current = idx;
-  ++m_depth;
+  Current = idx;
+  ++Depth;
 
   if (auto *fd = clang::dyn_cast<clang::FunctionDecl>(d)) {
     for (auto *p : fd->parameters())
@@ -331,104 +325,99 @@ void AstBuilder::walkDecl(clang::Decl *d) {
     walkStmt(sa->getAssertExpr());
   }
 
-  m_current = parent;
-  --m_depth;
+  Current = parent;
+  --Depth;
 }
 
 void AstBuilder::walkStmt(clang::Stmt *s) {
   if (!s)
     return;
-  if (is_transparent(s)) {
+  if (isTransparent(s)) {
     for (auto *child : s->children())
       walkStmt(child);
     return;
   }
-  if (limit_hit())
+  if (limitHit())
     return;
 
-  int parent = m_current;
+  int parent = Current;
   NodeCategory cat = clang::isa<clang::Expr>(s) ? NodeCategory::Expression
                                                 : NodeCategory::Statement;
-  int idx = add(cat, std::string(s->getStmtClassName()), stmt_detail(s),
-                stmt_type(s), range_str(m_sm, s->getSourceRange()));
+  int idx = add(cat, std::string(s->getStmtClassName()), stmtDetail(s),
+                stmtType(s), rangeStr(SM, s->getSourceRange()));
 
-  m_current = idx;
-  ++m_depth;
+  Current = idx;
+  ++Depth;
 
   if (auto *ds = clang::dyn_cast<clang::DeclStmt>(s)) {
     for (auto *d : ds->decls())
       walkDecl(d);
   } else if (auto *ifs = clang::dyn_cast<clang::IfStmt>(s)) {
-    walk_placeholder_or(ifs->getInit(), "EmptyInit");
+    walkPlaceholderOr(ifs->getInit(), "EmptyInit");
     walkStmt(ifs->getCond());
     walkStmt(ifs->getThen());
-    walk_placeholder_or(ifs->getElse(), "EmptyElse");
+    walkPlaceholderOr(ifs->getElse(), "EmptyElse");
   } else if (auto *ws = clang::dyn_cast<clang::WhileStmt>(s)) {
-    // surprise-surprise, this:
-    // if (int x = 1; x < 10) { ... }
-    // is allowed, but this
-    // while (int x = 1; x < 10) { ... }
-    // is apparently illegal syntax
-    walk_placeholder_or(ws->getConditionVariableDeclStmt(), "NoConditionVar");
+    walkPlaceholderOr(ws->getConditionVariableDeclStmt(), "NoConditionVar");
     walkStmt(ws->getCond());
     walkStmt(ws->getBody());
   } else if (auto *fs = clang::dyn_cast<clang::ForStmt>(s)) {
-    walk_placeholder_or(fs->getInit(), "EmptyInit");
-    walk_placeholder_or(fs->getCond(), "EmptyCond");
-    walk_placeholder_or(fs->getInc(), "EmptyInc");
+    walkPlaceholderOr(fs->getInit(), "EmptyInit");
+    walkPlaceholderOr(fs->getCond(), "EmptyCond");
+    walkPlaceholderOr(fs->getInc(), "EmptyInc");
     walkStmt(fs->getBody());
   } else if (auto *ss = clang::dyn_cast<clang::SwitchStmt>(s)) {
-    walk_placeholder_or(ss->getInit(), "EmptyInit");
+    walkPlaceholderOr(ss->getInit(), "EmptyInit");
     walkStmt(ss->getCond());
     walkStmt(ss->getBody());
   } else if (auto *frs = clang::dyn_cast<clang::CXXForRangeStmt>(s)) {
-    walk_range_decl(frs->getRangeStmt());
-    walk_range_decl(frs->getBeginStmt());
-    walk_range_decl(frs->getEndStmt());
+    walkRangeDecl(frs->getRangeStmt());
+    walkRangeDecl(frs->getBeginStmt());
+    walkRangeDecl(frs->getEndStmt());
     walkStmt(frs->getCond());
     walkStmt(frs->getInc());
-    walk_range_decl(frs->getLoopVarStmt());
+    walkRangeDecl(frs->getLoopVarStmt());
     walkStmt(frs->getBody());
   } else {
     for (auto *child : s->children())
       walkStmt(child);
   }
 
-  m_current = parent;
-  --m_depth;
+  Current = parent;
+  --Depth;
 }
 
 namespace {
 
 class AstCollector : public clang::ASTConsumer {
 public:
-  explicit AstCollector(AstBuilder &b) : m_b(b) {}
+  explicit AstCollector(AstBuilder &b) : Builder(b) {}
   void HandleTranslationUnit(clang::ASTContext &ctx) override {
-    m_b.build(ctx);
+    Builder.build(ctx);
   }
 
 private:
-  AstBuilder &m_b;
+  AstBuilder &Builder;
 };
 
 class AstDumpAction : public clang::ASTFrontendAction {
 public:
-  explicit AstDumpAction(AstBuilder &b) : m_b(b) {}
+  explicit AstDumpAction(AstBuilder &b) : Builder(b) {}
   std::unique_ptr<clang::ASTConsumer>
   CreateASTConsumer(clang::CompilerInstance &, llvm::StringRef) override {
-    return std::make_unique<AstCollector>(m_b);
+    return std::make_unique<AstCollector>(Builder);
   }
 
 private:
-  AstBuilder &m_b;
+  AstBuilder &Builder;
 };
 
 } // namespace
 
-bool parse_and_build(const std::string &code, AstBuilder &builder,
-                     ParseSummary &out) {
+bool parseAndBuild(const std::string &code, AstBuilder &builder,
+                   ParseSummary &out) {
   auto action = std::make_unique<AstDumpAction>(builder);
-  return run_tool_on_code(code, std::move(action), out);
+  return runToolOnCode(code, std::move(action), out);
 }
 
 } // namespace cpp2model

@@ -59,7 +59,7 @@ int main() {
 
   AstBuilder builder;
   ParseSummary summary;
-  parse_and_build(source, builder, summary);
+  parseAndBuild(source, builder, summary);
 
   const TreeModel &tree = builder.tree();
 
