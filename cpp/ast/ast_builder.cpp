@@ -28,8 +28,8 @@
 namespace cpp2model {
 namespace {
 
-constexpr int kMaxNodes = 400;
-constexpr int kMaxDepth = 40;
+constexpr int kMaxNodes = 800;
+constexpr int kMaxDepth = 80;
 
 std::string int_to_string(const llvm::APInt& v, bool isSigned) {
     llvm::SmallString<32> buf;

@@ -526,6 +526,7 @@ void CfgBuilder::walkSwitch(int s) {
     m_switch_targets.push_back(switch_bb);
 
     walkStmt(body_i);
+    sealTo(join_bb);
 
     m_switch_targets.pop_back();
     m_break_targets.pop_back();
