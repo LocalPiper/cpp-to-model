@@ -42,6 +42,7 @@ struct SsaCfg {
     std::vector<SsaBB> blocks;
     std::vector<int> rpo_num;
     std::vector<int> idom;
+    std::vector<std::vector<int>> df;
 };
 
 class SsaBuilder {
@@ -54,10 +55,12 @@ private:
     std::vector<int> m_rpo;
     std::vector<int> m_rpo_num;
     std::vector<int> m_idom;
+    std::vector<std::vector<int>> m_df;
 
     void computeRpo();
     void computeDominators();
     int intersect(int a, int b);
+    void computeDominanceFrontiers();
 
     void computeEdges();
     void parseBlocks(const Cfg& cfg);

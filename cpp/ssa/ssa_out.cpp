@@ -94,6 +94,15 @@ void emit_ssa_json(std::ostream& os, const SsaCfg& cfg) {
             os << ",\"idom\":" << cfg.idom[i];
         }
 
+        os << ",\"df\":[";
+        if (i < cfg.df.size()) {
+            for (size_t k = 0; k < cfg.df[i].size(); ++k) {
+                if (k) os << ",";
+                os << cfg.df[i][k];
+            }
+        }
+        os << "]";
+
         os << ",\"preds\":[";
         for (size_t k = 0; k < bb.preds.size(); ++k) {
             if (k) os << ",";

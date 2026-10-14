@@ -130,6 +130,33 @@ void SsaBuilder::computeDominators() {
     }
 }
 
+void SsaBuilder::computeDominanceFrontiers() {
+    const int n = static_cast<int>(m_ssa.blocks.size());
+    m_df.assign(n, {});
+
+    for (int b = 0; b < n; ++b) {
+        if (m_rpo_num[b] == -1) continue;
+        if (m_idom[b] == -1) continue;
+        if (m_ssa.blocks[b].preds.size() < 2) continue;
+
+        const int stop = m_idom[b];
+        for (int p : m_ssa.blocks[b].preds) {
+            if (m_rpo_num[p] == -1) continue;
+            int runner = p;
+            while (runner != stop) {
+                if (runner < 0 || runner >= n) break;
+                auto& vec = m_df[runner];
+                if (std::find(vec.begin(), vec.end(), b) == vec.end()) {
+                    vec.push_back(b);
+                }
+                int next = m_idom[runner];
+                if (next == -1) break;
+                runner = next;
+            }
+        }
+    }
+}
+
 TacOp SsaBuilder::parse_tac(const std::string& stmt) {
     TacOp out;
     const auto eq = stmt.find(" = ");
@@ -239,8 +266,10 @@ void SsaBuilder::build(const Cfg& cfg) {
     computeEdges();
     computeRpo();
     computeDominators();
+    computeDominanceFrontiers();
     m_ssa.rpo_num = m_rpo_num;
     m_ssa.idom = m_idom;
+    m_ssa.df = m_df;
 }
 
 } // namespace cpp2model
