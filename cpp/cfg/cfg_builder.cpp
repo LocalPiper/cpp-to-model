@@ -109,7 +109,9 @@ std::string CfgBuilder::walkExpr(int e, bool temp_needed = false,
 std::string CfgBuilder::walkUnary(int e, bool temp_needed, bool value_needed) {
     const Node& expr_node = getNode(e);
     const std::string op = expr_node.detail;
-    assert(!expr_node.children.empty());
+    if (expr_node.children.empty()) {
+        return op;
+    }
 
     if (op == "++" || op == "--") {
         // these ops lower to assignment
