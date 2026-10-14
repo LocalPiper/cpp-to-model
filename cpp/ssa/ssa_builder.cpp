@@ -360,8 +360,16 @@ TacOp SsaBuilder::parse_tac(const std::string& stmt) {
     assert(!toks.empty() && "TAC RHS must not be empty");
 
     if (toks.size() == 1) {
+        const std::string& t = toks[0];
+        // glued unary prefix
+        if (t.size() > 1 && (t[0] == '!' || t[0] == '~' || t[0] == '-'
+                        || t[0] == '+' || t[0] == '*' || t[0] == '&')) {
+            out.op = std::string(1, t[0]);
+            out.args.push_back(t.substr(1));
+            return out;
+        }
         out.op = "=";
-        out.args.push_back(toks[0]);
+        out.args.push_back(t);
         return out;
     }
 
